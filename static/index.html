@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>hibikicode math lab</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@bokeh/bokehjs@3.3.3/bokeh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+  </head>
+  <body>
+    <header class="toolbar">
+      <h1>グラフで学ぶプログラミング</h1>
+      <div class="toolbar-buttons">
+        <button id="run-button" class="primary">実行</button>
+        <button id="reset-button">リセット</button>
+      </div>
+    </header>
+    <main class="workspace">
+      <section class="left-pane">
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="graph" role="tab">グラフ表示</button>
+          <button class="tab" data-tab="log" role="tab">実行ログ</button>
+        </div>
+        <div class="tab-content">
+          <div id="graph" class="tab-panel active" role="tabpanel">
+            <div id="bokeh-plot" class="plot-area"></div>
+          </div>
+          <div id="log" class="tab-panel" role="tabpanel">
+            <div class="log-section">
+              <h3>実行時間</h3>
+              <p id="execution-time">-</p>
+            </div>
+            <div class="log-section">
+              <h3>標準出力</h3>
+              <pre id="stdout" class="log-output"></pre>
+            </div>
+            <div class="log-section">
+              <h3>エラー</h3>
+              <pre id="stderr" class="log-output error"></pre>
+            </div>
+          </div>
+        </div>
+        <section class="lesson-area">
+          <header class="lesson-header">
+            <h2 id="lesson-title">教材</h2>
+            <div class="lesson-controls">
+              <button id="prev-lesson" class="secondary">前へ</button>
+              <button id="next-lesson" class="secondary">次へ</button>
+            </div>
+          </header>
+          <article id="lesson-content" class="lesson-content">
+            <p>教材を読み込んでいます...</p>
+          </article>
+        </section>
+      </section>
+      <section class="right-pane">
+        <div id="editor" class="editor"></div>
+      </section>
+    </main>
+    <template id="default-code">
+      from math import sin, cos
+
+plot = new_plot(title="一次関数と二次関数")
+plot_function(lambda x: x, x_start=-10, x_end=10, legend_label="y = x")
+plot_function(lambda x: 0.2 * x**2 - 5, x_start=-10, x_end=10, legend_label="y = 0.2x^2 - 5", line_color="#ff7f0e")
+plot.xaxis.axis_label = "x"
+plot.yaxis.axis_label = "y"
+print("グラフを描画しました！")
+    </template>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.5/dist/axios.min.js"></script>
+    <script>
+      window.require = { paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs" } };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs/loader.min.js"></script>
+    <script src="/static/app.js" type="module"></script>
+  </body>
+</html>
