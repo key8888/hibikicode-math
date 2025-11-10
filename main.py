@@ -15,7 +15,7 @@ from typing import Any, Dict, Optional
 import numpy as np
 from bokeh.embed import json_item
 from bokeh.models import LayoutDOM
-from bokeh.plotting import ColumnDataSource, Figure, figure
+from bokeh.plotting import ColumnDataSource, figure
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
@@ -29,7 +29,7 @@ STATIC_DIR = BASE_DIR / "static"
 
 LESSON_PASSWORD = os.getenv("LESSON_PASSWORD", "8858")
 EXECUTION_TIMEOUT = float(os.getenv("EXECUTION_TIMEOUT", "3.0"))
-MEMORY_LIMIT_MB = int(os.getenv("EXECUTION_MEMORY_LIMIT_MB", "512"))
+MEMORY_LIMIT_MB = int(os.getenv("EXECUTION_MEMORY_LIMIT_MB", "2048"))
 
 
 class CodeRequest(BaseModel):
@@ -101,21 +101,34 @@ def _allowed_builtins() -> Dict[str, Any]:
 
 
 def _create_environment() -> Dict[str, Any]:
-    default_plot = figure(width=600, height=400, title="グラフ")
+    environment: Dict[str, Any] = {}
 
-    def new_plot(title: str = "グラフ", width: int = 600, height: int = 400, **kwargs: Any) -> Figure:
-        return figure(title=title, width=width, height=height, **kwargs)
+    def _set_default_plot(plot: LayoutDOM) -> LayoutDOM:
+        environment["default_plot"] = plot
+        environment["plot"] = plot
+        return plot
+
+    default_plot = _set_default_plot(figure(width=600, height=400, title="グラフ"))
+
+    def _target_plot(target_plot: Optional[LayoutDOM]) -> LayoutDOM:
+        if target_plot is not None:
+            return target_plot
+        return environment.get("default_plot", default_plot)
+
+    def new_plot(title: str = "グラフ", width: int = 600, height: int = 400, **kwargs: Any) -> LayoutDOM:
+        plot = figure(title=title, width=width, height=height, **kwargs)
+        return _set_default_plot(plot)
 
     def plot_function(
         func,
         x_start: float = -10,
         x_end: float = 10,
         num: int = 400,
-        target_plot: Optional[Figure] = None,
+        target_plot: Optional[LayoutDOM] = None,
         line_color: str = "#1f77b4",
         legend_label: Optional[str] = None,
-    ) -> Figure:
-        target = target_plot or default_plot
+    ) -> LayoutDOM:
+        target = _target_plot(target_plot)
         xs = np.linspace(x_start, x_end, num)
         ys = []
         for x in xs:
@@ -129,13 +142,13 @@ def _create_environment() -> Dict[str, Any]:
     def plot_points(
         x_values,
         y_values,
-        target_plot: Optional[Figure] = None,
+        target_plot: Optional[LayoutDOM] = None,
         size: int = 8,
         marker: str = "circle",
         color: str = "#d62728",
         legend_label: Optional[str] = None,
-    ) -> Figure:
-        target = target_plot or default_plot
+    ) -> LayoutDOM:
+        target = _target_plot(target_plot)
         source = ColumnDataSource({"x": list(x_values), "y": list(y_values)})
         glyph = getattr(target, marker, None)
         if callable(glyph):
@@ -150,11 +163,11 @@ def _create_environment() -> Dict[str, Any]:
         t_start: float = -10,
         t_end: float = 10,
         num: int = 400,
-        target_plot: Optional[Figure] = None,
+        target_plot: Optional[LayoutDOM] = None,
         line_color: str = "#2ca02c",
         legend_label: Optional[str] = None,
-    ) -> Figure:
-        target = target_plot or default_plot
+    ) -> LayoutDOM:
+        target = _target_plot(target_plot)
         ts = np.linspace(t_start, t_end, num)
         xs = []
         ys = []
@@ -168,19 +181,20 @@ def _create_environment() -> Dict[str, Any]:
         target.line(xs, ys, color=line_color, line_width=2, legend_label=legend_label)
         return target
 
-    environment: Dict[str, Any] = {
-        "__builtins__": _allowed_builtins(),
-        "math": math,
-        "np": np,
-        "numpy": np,
-        "new_plot": new_plot,
-        "plot_function": plot_function,
-        "plot_parametric": plot_parametric,
-        "plot_points": plot_points,
-        "figure": figure,
-        "ColumnDataSource": ColumnDataSource,
-        "default_plot": default_plot,
-    }
+    environment.update(
+        {
+            "__builtins__": _allowed_builtins(),
+            "math": math,
+            "np": np,
+            "numpy": np,
+            "new_plot": new_plot,
+            "plot_function": plot_function,
+            "plot_parametric": plot_parametric,
+            "plot_points": plot_points,
+            "figure": figure,
+            "ColumnDataSource": ColumnDataSource,
+        }
+    )
     return environment
 
 
@@ -210,11 +224,18 @@ def _execute_user_code(code: str, queue: Queue) -> None:
         for key in ("plot", "fig", "figure", "p", "default_plot"):
             value = env.get(key)
             if isinstance(value, LayoutDOM):
-                plot_candidate = value
-                break
+                if getattr(value, "renderers", []):
+                    plot_candidate = value
+                    break
+                if plot_candidate is None:
+                    plot_candidate = value
         if plot_candidate is None:
-            raise ValueError("グラフオブジェクトが見つかりません。'plot' という変数に Bokeh の figure を代入してください。")
-        json_plot = json_item(plot_candidate, "bokeh-plot")
+            default_plot = env.get("default_plot")
+            if isinstance(default_plot, LayoutDOM) and getattr(default_plot, "renderers", []):
+                plot_candidate = default_plot
+        elif not getattr(plot_candidate, "renderers", []):
+            plot_candidate = None
+        json_plot = json_item(plot_candidate, "bokeh-plot") if plot_candidate is not None else None
         duration = time.perf_counter() - start
         queue.put(
             {
