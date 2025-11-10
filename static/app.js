@@ -136,7 +136,24 @@ async function executeCode() {
     }
   } catch (error) {
     console.error(error);
-    alert("コードの実行に失敗しました。");
+    let errorLog = "";
+    if (error.response) {
+      const { status, statusText, data } = error.response;
+      const detail =
+        (data && (data.detail || data.message || JSON.stringify(data))) ||
+        "";
+      errorLog = `HTTP ${status} ${statusText || ""}`.trim();
+      if (detail) {
+        errorLog += `\n${detail}`;
+      }
+    } else if (error.request) {
+      errorLog = "サーバーからの応答がありません。ネットワーク設定を確認してください。";
+    } else {
+      errorLog = `リクエストの作成に失敗しました: ${error.message}`;
+    }
+    updateLog({ execution_time: 0, stdout: "", stderr: errorLog });
+    renderPlot(null);
+    alert("コードの実行に失敗しました。実行ログを確認してください。");
   } finally {
     runButton.disabled = false;
     runButton.textContent = "実行";
