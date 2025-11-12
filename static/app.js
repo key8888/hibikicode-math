@@ -1,13 +1,18 @@
 const runButton = document.getElementById("run-button");
 const resetButton = document.getElementById("reset-button");
 const executionTime = document.getElementById("execution-time");
-const stdoutOutput = document.getElementById("stdout");
-const stderrOutput = document.getElementById("stderr");
+const combinedLogOutput = document.getElementById("combined-log");
 const lessonTitle = document.getElementById("lesson-title");
 const lessonContent = document.getElementById("lesson-content");
 const prevLessonButton = document.getElementById("prev-lesson");
 const nextLessonButton = document.getElementById("next-lesson");
 const defaultCodeTemplate = document.getElementById("default-code");
+const fontSizeControl = document.getElementById("font-size-control");
+const fontSizeValue = document.getElementById("font-size-value");
+const callTeacherButton = document.getElementById("call-teacher-button");
+
+const teacherAudio = new Audio("/static/call_teacher.wav");
+teacherAudio.preload = "auto";
 
 let editorInstance = null;
 let materialsMeta = [];
@@ -89,7 +94,7 @@ function renderLesson(material) {
     lessonContent.innerHTML = "<p>教材が見つかりません。</p>";
     return;
   }
-  lessonTitle.textContent = material.title;
+  lessonTitle.textContent = material.title || "教材";
   lessonContent.innerHTML = sanitizeHtml(material.content);
 }
 
@@ -147,8 +152,19 @@ function resetEditor() {
 
 function updateLog(result) {
   executionTime.textContent = result.execution_time ? `${result.execution_time.toFixed(3)} 秒` : "-";
-  stdoutOutput.textContent = result.stdout || "";
-  stderrOutput.textContent = result.stderr || "";
+  if (!combinedLogOutput) return;
+  const hasStdout = Boolean(result.stdout);
+  const hasStderr = Boolean(result.stderr);
+  let combined = "";
+  if (hasStdout && hasStderr) {
+    combined = `${result.stdout}\n${result.stderr}`;
+  } else if (hasStdout) {
+    combined = result.stdout;
+  } else if (hasStderr) {
+    combined = result.stderr;
+  }
+  combinedLogOutput.textContent = combined;
+  combinedLogOutput.classList.toggle("error", hasStderr);
 }
 
 /* =========================
@@ -177,8 +193,11 @@ async function renderPlot(plotItem) {
 async function executeCode() {
   if (!editorInstance) return;
   runButton.disabled = true;
-  runButton.textContent = "実行中...";
-  stderrOutput.textContent = "";
+  runButton.textContent = "実行...";
+  if (combinedLogOutput) {
+    combinedLogOutput.textContent = "";
+    combinedLogOutput.classList.remove("error");
+  }
   const code = editorInstance.getValue();
 
   try {
@@ -223,13 +242,14 @@ async function executeCode() {
    ========================= */
 function initializeEditor() {
   const defaultCode = (defaultCodeTemplate.textContent || "").trim();
+  const defaultFontSize = fontSizeControl ? Number(fontSizeControl.value) || 15 : 15;
   require(["vs/editor/editor.main"], () => {
     editorInstance = monaco.editor.create(document.getElementById("editor"), {
       value: defaultCode,
       language: "python",
       theme: "vs-dark",
       automaticLayout: true,
-      fontSize: 15,
+      fontSize: defaultFontSize,
       minimap: { enabled: false },
       scrollBeyondLastLine: false,
     });
@@ -241,6 +261,38 @@ function initializeEditor() {
    ========================= */
 runButton.addEventListener("click", executeCode);
 resetButton.addEventListener("click", resetEditor);
+
+if (callTeacherButton) {
+  callTeacherButton.addEventListener("click", () => {
+    try {
+      teacherAudio.pause();
+      teacherAudio.currentTime = 0;
+    } catch (error) {
+      /* noop */
+    }
+    const playPromise = teacherAudio.play();
+    if (playPromise && typeof playPromise.catch === "function") {
+      playPromise.catch(() => {});
+    }
+  });
+}
+
+function updateFontSizeDisplay(value) {
+  if (!fontSizeValue) return;
+  fontSizeValue.textContent = `${value}px`;
+}
+
+if (fontSizeControl) {
+  updateFontSizeDisplay(fontSizeControl.value);
+
+  fontSizeControl.addEventListener("input", () => {
+    const size = Number(fontSizeControl.value);
+    updateFontSizeDisplay(size);
+    if (editorInstance) {
+      editorInstance.updateOptions({ fontSize: size });
+    }
+  });
+}
 
 prevLessonButton.addEventListener("click", () => {
   if (currentLessonIndex <= 0) return;
