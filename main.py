@@ -29,7 +29,7 @@ STATIC_DIR = BASE_DIR / "static"
 
 LESSON_PASSWORD = os.getenv("LESSON_PASSWORD", "8858")
 EXECUTION_TIMEOUT = float(os.getenv("EXECUTION_TIMEOUT", "3.0"))
-MEMORY_LIMIT_MB = int(os.getenv("EXECUTION_MEMORY_LIMIT_MB", "2048"))
+MEMORY_LIMIT_MB = int(os.getenv("EXECUTION_MEMORY_LIMIT_MB", "1024"))
 
 
 class CodeRequest(BaseModel):

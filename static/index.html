@@ -5,8 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>hibikicode math lab</title>
     <link rel="stylesheet" href="/static/styles.css" />
-    <script src="https://cdn.jsdelivr.net/npm/@bokeh/bokehjs@3.3.3/bokeh.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+    <!-- ▼ BokehJSは読み込まない（app.jsでサーバーのバージョンに合わせて動的ロード） -->
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.5/dist/axios.min.js" defer></script>
+    <script>
+      // Monaco の AMD ローダ設定
+      window.require = { paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs" } };
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs/loader.min.js" defer></script>
+    <!-- /static/app.js は ES Modules。BokehJS の動的ロードもここでやる -->
+    <script src="/static/app.js" type="module" defer></script>
   </head>
   <body>
     <header class="toolbar">
@@ -68,11 +76,5 @@ plot.xaxis.axis_label = "x"
 plot.yaxis.axis_label = "y"
 print("グラフを描画しました！")
     </template>
-    <script src="https://cdn.jsdelivr.net/npm/axios@1.6.5/dist/axios.min.js"></script>
-    <script>
-      window.require = { paths: { vs: "https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs" } };
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs/loader.min.js"></script>
-    <script src="/static/app.js" type="module"></script>
   </body>
 </html>
