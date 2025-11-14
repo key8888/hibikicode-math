@@ -18,6 +18,16 @@ body {
   min-height: 100vh;
 }
 
+body.resizing-x {
+  cursor: col-resize;
+  user-select: none;
+}
+
+body.resizing-y {
+  cursor: row-resize;
+  user-select: none;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -64,11 +74,15 @@ button:hover {
   box-shadow: 0 4px 10px var(--shadow-color);
 }
 
+/* ===== ワークスペース：左右を flex で管理 ===== */
+
 .workspace {
   flex: 1;
   display: flex;
   gap: 1rem;
   padding: 1rem 1.5rem 2rem;
+  align-items: stretch;
+  min-height: 0;
 }
 
 .left-pane,
@@ -78,22 +92,49 @@ button:hover {
   padding: 1rem;
   display: flex;
   flex-direction: column;
-  overflow: auto;
-  resize: horizontal;
-  min-width: 280px;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .left-pane {
   background: var(--card-background);
-  flex: 1 1 40%;
+  flex: 0 0 40%;
+  min-width: 280px;
 }
 
 .right-pane {
   background: #1e1e1e;
   color: #f9fafb;
-  flex: 1 1 60%;
+  flex: 1 1 auto;
   gap: 1rem;
+  min-width: 320px;
+  min-height: 0;
 }
+
+/* 左右のスプリッター */
+
+.splitter {
+  background: #d1d5db;
+  flex-shrink: 0;
+}
+
+.splitter.vertical {
+  width: 6px;
+  cursor: col-resize;
+  border-radius: 999px;
+}
+
+/* 上下スプリッター（右ペイン内） */
+
+.splitter.horizontal {
+  width: 100%;
+  height: 6px;
+  cursor: row-resize;
+  border-radius: 999px;
+  background: #4b5563;
+}
+
+/* タブまわり */
 
 .tabs {
   display: flex;
@@ -116,18 +157,59 @@ button:hover {
   color: white;
 }
 
+.tab-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
 .tab-panel {
   display: none;
+  height: 100%;
 }
 
 .tab-panel.active {
-  display: block;
+  display: flex;
+  flex-direction: column;
 }
+
+/* プロットエリア（left-paneいっぱいにフィットさせる） */
 
 .plot-area {
   width: 100%;
   min-height: 320px;
+  flex: 1;
 }
+
+#bokeh-plot {
+  width: 100%;
+  height: 100%;
+}
+
+/* Bokeh が吐く要素を left-pane にフィットさせる調整 */
+
+#bokeh-plot .bk-root,
+#bokeh-plot .bk-figure,
+#bokeh-plot .bk-layout-fixed,
+#bokeh-plot .bk-layout {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#bokeh-plot .bk-layer > div {
+  top: 0 !important;
+  bottom: 0 !important;
+  height: 100% !important;
+  right: 0 !important;
+  left: auto !important;
+}
+
+#bokeh-plot .bk-Toolbar.bk-right {
+  height: 100% !important;
+}
+
+/* ログ出力 */
 
 .log-output {
   background: #111827;
@@ -142,6 +224,8 @@ button:hover {
   background: #7f1d1d;
   color: #fde8e8;
 }
+
+/* 教材 */
 
 .lesson-header {
   display: flex;
@@ -158,6 +242,7 @@ button:hover {
   line-height: 1.6;
   font-size: 0.95rem;
   color: #1f2937;
+  overflow: auto;
 }
 
 .lesson-content pre {
@@ -173,12 +258,7 @@ button:hover {
   margin-top: 1.5rem;
 }
 
-.editor {
-  flex: 1;
-  min-height: 400px;
-  border-radius: 12px;
-  overflow: hidden;
-}
+/* エディタ・ログ（右ペイン内） */
 
 .editor-toolbar {
   display: flex;
@@ -198,6 +278,22 @@ button:hover {
   font-size: 0.9rem;
 }
 
+.editor-log-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.editor {
+  border-radius: 12px;
+  overflow: hidden;
+  width: 100%;
+  /* 初期高さは flex で決まるが、最低は確保 */
+  min-height: 220px;
+  flex: 1 1 auto;
+}
+
 .log-area {
   background: rgba(17, 24, 39, 0.85);
   padding: 1rem;
@@ -205,8 +301,9 @@ button:hover {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
-  resize: vertical;
   overflow: auto;
+  min-height: 80px;
+  flex: 0 0 160px; /* 初期高さ */
 }
 
 .log-header {
@@ -232,6 +329,8 @@ button:hover {
   color: #422006;
 }
 
+/* ===== レスポンシブ ===== */
+
 @media (max-width: 1024px) {
   .workspace {
     flex-direction: column;
@@ -240,11 +339,16 @@ button:hover {
   .left-pane,
   .right-pane {
     min-height: 400px;
-    resize: vertical;
     min-width: auto;
     width: auto;
   }
+
+  #vertical-splitter {
+    display: none;
+  }
 }
+
+/* ===== ダークモード ===== */
 
 @media (prefers-color-scheme: dark) {
   body {
@@ -282,5 +386,9 @@ button:hover {
 
   .log-area {
     background: rgba(30, 41, 59, 0.85);
+  }
+
+  .splitter.horizontal {
+    background: #6b7280;
   }
 }

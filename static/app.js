@@ -40,23 +40,21 @@ function loadScript(src) {
  * 必要なら BokehJS をロード/差し替えする
  */
 async function ensureBokehVersion(requiredVersion) {
-  // すでに同じバージョンがロード済みなら何もしない
   if (window.Bokeh && loadedBokehVersion === requiredVersion) return;
 
-  // いまロード中のものがあれば待つ（同一versionならそのままOK）
   if (bokehLoadingPromise) {
-    try { await bokehLoadingPromise; } catch { /* noop */ }
+    try {
+      await bokehLoadingPromise;
+    } catch {
+      /* noop */
+    }
     if (window.Bokeh && loadedBokehVersion === requiredVersion) return;
   }
 
-  // 新しいバージョンをロード
   bokehLoadingPromise = (async () => {
     const url = `https://cdn.bokeh.org/bokeh/release/bokeh-${requiredVersion}.min.js`;
     await loadScript(url);
-
-    // Bokeh はグローバルに上書きされる想定
     if (!window.Bokeh) throw new Error("BokehJS の読み込みに失敗しました。");
-
     loadedBokehVersion = window.Bokeh.version || requiredVersion;
   })();
 
@@ -66,15 +64,27 @@ async function ensureBokehVersion(requiredVersion) {
 /* =========================
    UI: タブ、教材、エディタ
    ========================= */
+
+function activateTab(targetId) {
+  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+  document
+    .querySelectorAll(".tab-panel")
+    .forEach((panel) => panel.classList.remove("active"));
+
+  const tab = document.querySelector(`.tab[data-tab="${targetId}"]`);
+  const panel = document.getElementById(targetId);
+  if (tab && panel) {
+    tab.classList.add("active");
+    panel.classList.add("active");
+  }
+}
+
 function setupTabs() {
   const tabs = document.querySelectorAll(".tab");
   tabs.forEach((tab) => {
     tab.addEventListener("click", () => {
       const targetId = tab.dataset.tab;
-      document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
-      document.querySelectorAll(".tab-panel").forEach((panel) => panel.classList.remove("active"));
-      tab.classList.add("active");
-      document.getElementById(targetId).classList.add("active");
+      activateTab(targetId);
     });
   });
 }
@@ -85,7 +95,8 @@ function sanitizeHtml(html) {
 
 function updateLessonNavigation() {
   prevLessonButton.disabled = currentLessonIndex <= 0;
-  nextLessonButton.disabled = materialsMeta.length === 0 || currentLessonIndex >= materialsMeta.length - 1;
+  nextLessonButton.disabled =
+    materialsMeta.length === 0 || currentLessonIndex >= materialsMeta.length - 1;
 }
 
 function renderLesson(material) {
@@ -106,7 +117,8 @@ async function fetchMaterialsMeta() {
   } catch (error) {
     console.error(error);
     lessonTitle.textContent = "教材読み込みエラー";
-    lessonContent.innerHTML = `<p>教材一覧の取得に失敗しました。ページを更新して再度お試しください。</p>`;
+    lessonContent.innerHTML =
+      "<p>教材一覧の取得に失敗しました。ページを更新して再度お試しください。</p>";
   }
 }
 
@@ -123,7 +135,9 @@ async function fetchLesson(index, options = {}) {
     if (index === 0) {
       response = await axios.get(`/api/materials/${index}`);
     } else if (options.password) {
-      response = await axios.post(`/api/materials/${index}/unlock`, { password: options.password });
+      response = await axios.post(`/api/materials/${index}/unlock`, {
+        password: options.password,
+      });
     } else {
       throw new Error("locked");
     }
@@ -151,7 +165,9 @@ function resetEditor() {
 }
 
 function updateLog(result) {
-  executionTime.textContent = result.execution_time ? `${result.execution_time.toFixed(3)} 秒` : "-";
+  executionTime.textContent = result.execution_time
+    ? `${result.execution_time.toFixed(3)} 秒`
+    : "-";
   if (!combinedLogOutput) return;
   const hasStdout = Boolean(result.stdout);
   const hasStderr = Boolean(result.stderr);
@@ -180,8 +196,8 @@ async function renderPlot(plotItem) {
 
   if (!plotItem) return;
 
-  // ここで plotItem.version を使って正しい BokehJS を保証する
-  const required = plotItem.version || (window.Bokeh && window.Bokeh.version) || "3.3.3";
+  const required =
+    plotItem.version || (window.Bokeh && window.Bokeh.version) || "3.3.3";
   await ensureBokehVersion(required);
 
   window.Bokeh.embed.embed_item(plotItem, "bokeh-plot");
@@ -192,6 +208,10 @@ async function renderPlot(plotItem) {
    ========================= */
 async function executeCode() {
   if (!editorInstance) return;
+
+  // 実行したら必ずグラフタブを表示
+  activateTab("graph");
+
   runButton.disabled = true;
   runButton.textContent = "実行...";
   if (combinedLogOutput) {
@@ -206,7 +226,6 @@ async function executeCode() {
     updateLog(result);
 
     if (result.success && result.plot) {
-      // バージョン不一致を避けるため、plot の version に合わせてから描画
       await renderPlot(result.plot);
     } else {
       await renderPlot(null);
@@ -224,7 +243,8 @@ async function executeCode() {
       errorLog = `HTTP ${status} ${statusText || ""}`.trim();
       if (detail) errorLog += `\n${detail}`;
     } else if (error.request) {
-      errorLog = "サーバーからの応答がありません。ネットワーク設定を確認してください。";
+      errorLog =
+        "サーバーからの応答がありません。ネットワーク設定を確認してください。";
     } else {
       errorLog = `実行処理中のエラー: ${error.message}`;
     }
@@ -242,25 +262,186 @@ async function executeCode() {
    ========================= */
 function initializeEditor() {
   const defaultCode = (defaultCodeTemplate.textContent || "").trim();
-  const defaultFontSize = fontSizeControl ? Number(fontSizeControl.value) || 15 : 15;
+  const defaultFontSize =
+    fontSizeControl ? Number(fontSizeControl.value) || 15 : 15;
   require(["vs/editor/editor.main"], () => {
-    editorInstance = monaco.editor.create(document.getElementById("editor"), {
-      value: defaultCode,
-      language: "python",
-      theme: "vs-dark",
-      automaticLayout: true,
-      fontSize: defaultFontSize,
-      minimap: { enabled: false },
-      scrollBeyondLastLine: false,
-    });
+    editorInstance = monaco.editor.create(
+      document.getElementById("editor"),
+      {
+        value: defaultCode,
+        language: "python",
+        theme: "vs-dark",
+        automaticLayout: true,
+        fontSize: defaultFontSize,
+        minimap: { enabled: false },
+        scrollBeyondLastLine: false,
+      }
+    );
   });
 }
+
+/* =========================
+   スプリッター（ドラッグでサイズ変更）
+   ========================= */
+
+function setupSplitters() {
+  // 左右分割：left-pane の幅（flex-basis）だけを変更
+  const workspace = document.querySelector(".workspace");
+  const leftPane = document.querySelector(".left-pane");
+  const rightPane = document.querySelector(".right-pane");
+  const vSplitter = document.getElementById("vertical-splitter");
+
+  if (workspace && leftPane && rightPane && vSplitter) {
+    let isDraggingV = false;
+
+    vSplitter.addEventListener("mousedown", (e) => {
+      isDraggingV = true;
+      document.body.classList.add("resizing-x");
+      e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDraggingV) return;
+
+      const rect = workspace.getBoundingClientRect();
+      let x = e.clientX - rect.left; // workspace 左端からの距離
+
+      const splitterWidth = vSplitter.getBoundingClientRect().width;
+      const minLeft = 280; // left-pane 最小幅
+      const minRight = 320; // right-pane 最小幅
+      const maxLeft = rect.width - splitterWidth - minRight;
+
+      x = Math.max(minLeft, Math.min(maxLeft, x));
+
+      // 左ペインの幅のみ固定ピクセルにする
+      leftPane.style.flexBasis = `${x}px`;
+      // 右ペインは残りを使う（flex-grow:1 なので端は動かない）
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isDraggingV) {
+        isDraggingV = false;
+        document.body.classList.remove("resizing-x");
+      }
+    });
+  }
+
+  // 右ペイン内：エディタとログの境界
+  const editorLogContainer = document.querySelector(".editor-log-container");
+  const hSplitter = document.getElementById("horizontal-splitter");
+  const editorEl = document.getElementById("editor");
+  const logArea = document.querySelector(".log-area");
+
+  if (editorLogContainer && hSplitter && editorEl && logArea) {
+    let isDraggingH = false;
+
+    hSplitter.addEventListener("mousedown", (e) => {
+      isDraggingH = true;
+      document.body.classList.add("resizing-y");
+      e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDraggingH) return;
+
+      const rect = editorLogContainer.getBoundingClientRect();
+      const splitterHeight = hSplitter.getBoundingClientRect().height;
+
+      let y = e.clientY - rect.top; // container 上端からドラッグ位置まで
+
+      const minEditor = 160;
+      const minLog = 80;
+      const maxEditor = rect.height - splitterHeight - minLog;
+
+      y = Math.max(minEditor, Math.min(maxEditor, y));
+
+      const logHeight = rect.height - splitterHeight - y;
+
+      editorEl.style.flexBasis = `${y}px`;
+      logArea.style.flexBasis = `${logHeight}px`;
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isDraggingH) {
+        isDraggingH = false;
+        document.body.classList.remove("resizing-y");
+      }
+    });
+  }
+}
+
+/* =========================
+   左右スプリッター
+   ========================= */
+
+function setupSplitters() {
+  const workspace = document.querySelector(".workspace");
+  const leftPane = document.querySelector(".left-pane");
+  const rightPane = document.querySelector(".right-pane");
+  const vSplitter = document.getElementById("vertical-splitter");
+
+  if (workspace && leftPane && rightPane && vSplitter) {
+    let isDraggingV = false;
+    let offsetX = 0; // ← 追加：マウス位置のズレ補正用
+
+    vSplitter.addEventListener("mousedown", (e) => {
+      isDraggingV = true;
+
+      // スプリッター左端からの相対位置を記録
+      const splitterRect = vSplitter.getBoundingClientRect();
+      offsetX = e.clientX - splitterRect.left;
+
+      document.body.classList.add("resizing-x");
+      e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDraggingV) return;
+
+      const rect = workspace.getBoundingClientRect();
+      const splitterWidth = vSplitter.getBoundingClientRect().width;
+
+      // マウス位置 - オフセット - workspace左端
+      let x = e.clientX - offsetX - rect.left;
+
+      const minLeft = 280;
+      const minRight = 320;
+      const maxLeft = rect.width - splitterWidth - minRight;
+
+      x = Math.max(minLeft, Math.min(maxLeft, x));
+
+      leftPane.style.flexBasis = `${x}px`;
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isDraggingV) {
+        isDraggingV = false;
+        document.body.classList.remove("resizing-x");
+      }
+    });
+  }
+}
+
+
+
+
 
 /* =========================
    イベント & 初期化
    ========================= */
 runButton.addEventListener("click", executeCode);
 resetButton.addEventListener("click", resetEditor);
+
+// Ctrl + Enter で実行
+document.addEventListener("keydown", (event) => {
+  const isCtrlEnter = event.key === "Enter" && event.ctrlKey;
+  if (isCtrlEnter) {
+    event.preventDefault();
+    if (!runButton.disabled) {
+      executeCode();
+    }
+  }
+});
 
 if (callTeacherButton) {
   callTeacherButton.addEventListener("click", () => {
@@ -275,7 +456,7 @@ if (callTeacherButton) {
       playPromise.catch(() => {});
     }
   });
-}
+};
 
 function updateFontSizeDisplay(value) {
   if (!fontSizeValue) return;
@@ -311,13 +492,18 @@ nextLessonButton.addEventListener("click", async () => {
     await fetchLesson(nextIndex);
     return;
   }
-  const password = prompt("先生に確認しましたか？\n先生に「パスワード」をもらってください", "");
+  const password = prompt(
+    "先生に確認しましたか？\n先生に「パスワード」をもらってください",
+    ""
+  );
   if (password === null) return;
   await fetchLesson(nextIndex, { password });
 });
 
 setupTabs();
 initializeEditor();
+setupSplitters();
+
 fetchMaterialsMeta().then(() => {
   if (materialsMeta.length > 0) {
     fetchLesson(0);
