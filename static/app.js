@@ -285,104 +285,13 @@ function initializeEditor() {
    ========================= */
 
 function setupSplitters() {
-  // 左右分割：left-pane の幅（flex-basis）だけを変更
   const workspace = document.querySelector(".workspace");
   const leftPane = document.querySelector(".left-pane");
-  const rightPane = document.querySelector(".right-pane");
   const vSplitter = document.getElementById("vertical-splitter");
 
-  if (workspace && leftPane && rightPane && vSplitter) {
+  if (workspace && leftPane && vSplitter) {
     let isDraggingV = false;
-
-    vSplitter.addEventListener("mousedown", (e) => {
-      isDraggingV = true;
-      document.body.classList.add("resizing-x");
-      e.preventDefault();
-    });
-
-    window.addEventListener("mousemove", (e) => {
-      if (!isDraggingV) return;
-
-      const rect = workspace.getBoundingClientRect();
-      let x = e.clientX - rect.left; // workspace 左端からの距離
-
-      const splitterWidth = vSplitter.getBoundingClientRect().width;
-      const minLeft = 280; // left-pane 最小幅
-      const minRight = 320; // right-pane 最小幅
-      const maxLeft = rect.width - splitterWidth - minRight;
-
-      x = Math.max(minLeft, Math.min(maxLeft, x));
-
-      // 左ペインの幅のみ固定ピクセルにする
-      leftPane.style.flexBasis = `${x}px`;
-      // 右ペインは残りを使う（flex-grow:1 なので端は動かない）
-    });
-
-    window.addEventListener("mouseup", () => {
-      if (isDraggingV) {
-        isDraggingV = false;
-        document.body.classList.remove("resizing-x");
-      }
-    });
-  }
-
-  // 右ペイン内：エディタとログの境界
-  const editorLogContainer = document.querySelector(".editor-log-container");
-  const hSplitter = document.getElementById("horizontal-splitter");
-  const editorEl = document.getElementById("editor");
-  const logArea = document.querySelector(".log-area");
-
-  if (editorLogContainer && hSplitter && editorEl && logArea) {
-    let isDraggingH = false;
-
-    hSplitter.addEventListener("mousedown", (e) => {
-      isDraggingH = true;
-      document.body.classList.add("resizing-y");
-      e.preventDefault();
-    });
-
-    window.addEventListener("mousemove", (e) => {
-      if (!isDraggingH) return;
-
-      const rect = editorLogContainer.getBoundingClientRect();
-      const splitterHeight = hSplitter.getBoundingClientRect().height;
-
-      let y = e.clientY - rect.top; // container 上端からドラッグ位置まで
-
-      const minEditor = 160;
-      const minLog = 80;
-      const maxEditor = rect.height - splitterHeight - minLog;
-
-      y = Math.max(minEditor, Math.min(maxEditor, y));
-
-      const logHeight = rect.height - splitterHeight - y;
-
-      editorEl.style.flexBasis = `${y}px`;
-      logArea.style.flexBasis = `${logHeight}px`;
-    });
-
-    window.addEventListener("mouseup", () => {
-      if (isDraggingH) {
-        isDraggingH = false;
-        document.body.classList.remove("resizing-y");
-      }
-    });
-  }
-}
-
-/* =========================
-   左右スプリッター
-   ========================= */
-
-function setupSplitters() {
-  const workspace = document.querySelector(".workspace");
-  const leftPane = document.querySelector(".left-pane");
-  const rightPane = document.querySelector(".right-pane");
-  const vSplitter = document.getElementById("vertical-splitter");
-
-  if (workspace && leftPane && rightPane && vSplitter) {
-    let isDraggingV = false;
-    let offsetX = 0; // ← 追加：マウス位置のズレ補正用
+    let offsetX = 0;
 
     vSplitter.addEventListener("mousedown", (e) => {
       isDraggingV = true;
@@ -417,6 +326,53 @@ function setupSplitters() {
       if (isDraggingV) {
         isDraggingV = false;
         document.body.classList.remove("resizing-x");
+      }
+    });
+  }
+
+  const editorLogContainer = document.querySelector(".editor-log-container");
+  const hSplitter = document.getElementById("horizontal-splitter");
+  const editorEl = document.getElementById("editor");
+  const logArea = document.querySelector(".log-area");
+
+  if (editorLogContainer && hSplitter && editorEl && logArea) {
+    let isDraggingH = false;
+    let startY = 0;
+    let startLogHeight = 0;
+
+    hSplitter.addEventListener("mousedown", (e) => {
+      isDraggingH = true;
+      startY = e.clientY;
+      startLogHeight = logArea.getBoundingClientRect().height;
+
+      document.body.classList.add("resizing-y");
+      e.preventDefault();
+    });
+
+    window.addEventListener("mousemove", (e) => {
+      if (!isDraggingH) return;
+
+      const rect = editorLogContainer.getBoundingClientRect();
+      const splitterHeight = hSplitter.getBoundingClientRect().height;
+
+      const delta = e.clientY - startY;
+      const minEditor = 160;
+      const minLog = 80;
+      const maxLog = rect.height - splitterHeight - minEditor;
+
+      let newLogHeight = startLogHeight + delta;
+      newLogHeight = Math.max(minLog, Math.min(maxLog, newLogHeight));
+
+      const newEditorHeight = rect.height - splitterHeight - newLogHeight;
+
+      editorEl.style.flexBasis = `${newEditorHeight}px`;
+      logArea.style.flexBasis = `${newLogHeight}px`;
+    });
+
+    window.addEventListener("mouseup", () => {
+      if (isDraggingH) {
+        isDraggingH = false;
+        document.body.classList.remove("resizing-y");
       }
     });
   }
