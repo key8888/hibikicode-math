@@ -188,5 +188,6 @@
 
 # 5. 保存
 - 小節ごとlesson.mdファイルを作る、小節ごとに別々に出力して例lesson1.1.md, lesson1.2.md
+- lessons\に保存する
 ```
 
