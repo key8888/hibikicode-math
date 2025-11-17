@@ -1,0 +1,89 @@
+import { elements } from "./domElements.js";
+import { state } from "./state.js";
+
+/**
+ * HTML を DOMPurify で無害化してから反映する。
+ */
+function sanitizeHtml(html) {
+  return DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+}
+
+/**
+ * 教材の前後ボタンの活性状態を更新する。
+ */
+export function updateLessonNavigation() {
+  const { prevLessonButton, nextLessonButton } = elements;
+  prevLessonButton.disabled = state.currentLessonIndex <= 0;
+  nextLessonButton.disabled =
+    state.materialsMeta.length === 0 ||
+    state.currentLessonIndex >= state.materialsMeta.length - 1;
+}
+
+/**
+ * 教材本文とタイトルを DOM に描画する。
+ */
+function renderLesson(material) {
+  const { lessonTitle, lessonContent } = elements;
+  if (!material) {
+    lessonTitle.textContent = "教材";
+    lessonContent.innerHTML = "<p>教材が見つかりません。</p>";
+    return;
+  }
+  lessonTitle.textContent = material.title || "教材";
+  lessonContent.innerHTML = sanitizeHtml(material.content);
+}
+
+/**
+ * サーバーから教材一覧メタデータを取得する。
+ */
+export async function fetchMaterialsMeta() {
+  try {
+    const response = await axios.get("/api/materials");
+    state.materialsMeta = response.data.materials || [];
+    updateLessonNavigation();
+  } catch (error) {
+    console.error(error);
+    elements.lessonTitle.textContent = "教材読み込みエラー";
+    elements.lessonContent.innerHTML =
+      "<p>教材一覧の取得に失敗しました。ページを更新して再度お試しください。</p>";
+  }
+}
+
+/**
+ * 指定インデックスの教材をキャッシュから取得、なければ API から取得する。
+ */
+export async function fetchLesson(index, options = {}) {
+  if (state.unlockedMaterials.has(index)) {
+    state.currentLessonIndex = index;
+    renderLesson(state.unlockedMaterials.get(index));
+    updateLessonNavigation();
+    return;
+  }
+
+  try {
+    let response;
+    if (index === 0) {
+      response = await axios.get(`/api/materials/${index}`);
+    } else if (options.password) {
+      response = await axios.post(`/api/materials/${index}/unlock`, {
+        password: options.password,
+      });
+    } else {
+      throw new Error("locked");
+    }
+
+    const material = response.data;
+    state.unlockedMaterials.set(index, material);
+    state.currentLessonIndex = index;
+    renderLesson(material);
+    updateLessonNavigation();
+  } catch (error) {
+    if (error.response && error.response.status === 403) {
+      alert("パスワードが正しくありません。");
+    } else if (error.message === "locked") {
+      alert("この教材を表示するにはパスワードが必要です。");
+    } else {
+      alert("教材の取得に失敗しました。");
+    }
+  }
+}
