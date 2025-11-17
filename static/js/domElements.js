@@ -22,4 +22,5 @@ export const elements = {
   editorLogContainer: document.querySelector(".editor-log-container"),
   horizontalSplitter: document.getElementById("horizontal-splitter"),
   logArea: document.querySelector(".log-area"),
+  materialsList: document.getElementById("materials-list"),
 };

@@ -5,7 +5,7 @@
 export const state = {
   /** @type {import('monaco-editor').editor.IStandaloneCodeEditor | null} */
   editorInstance: null,
-  /** @type {Array<{title: string, content: string}>} */
+  /** @type {Array<{id: number, title: string}>} */
   materialsMeta: [],
   /** 取得済み教材（インデックス -> 教材データ）のキャッシュ */
   unlockedMaterials: new Map(),

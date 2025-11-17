@@ -258,6 +258,80 @@ button:hover {
   margin-top: 1.5rem;
 }
 
+.materials-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  overflow: auto;
+}
+
+.materials-list p {
+  margin: 0;
+  color: #4b5563;
+}
+
+.materials-list-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.materials-list-item {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: rgba(243, 244, 246, 0.8);
+  color: inherit;
+  font-size: 0.95rem;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.materials-list-item.current {
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.materials-list-item:hover {
+  border-color: var(--primary-color);
+}
+
+.materials-list-item .material-title {
+  flex: 1;
+  margin-right: 0.75rem;
+  font-weight: 600;
+}
+
+.materials-list-item .material-status {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+}
+
+.materials-list-item .material-status.lock {
+  background: #fef2f2;
+  color: #991b1b;
+  border-color: rgba(185, 28, 28, 0.2);
+}
+
+.materials-list-item .material-status.unlock {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
 /* エディタ・ログ（右ペイン内） */
 
 .editor-toolbar {
@@ -390,5 +464,22 @@ button:hover {
 
   .splitter.horizontal {
     background: #6b7280;
+  }
+
+  .materials-list-item {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(148, 163, 184, 0.3);
+  }
+
+  .materials-list-item .material-status.lock {
+    background: rgba(127, 29, 29, 0.2);
+    color: #fecaca;
+    border-color: rgba(239, 68, 68, 0.3);
+  }
+
+  .materials-list-item .material-status.unlock {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+    border-color: rgba(16, 185, 129, 0.3);
   }
 }

@@ -8,6 +8,7 @@ import { executeCode } from "./js/codeRunner.js";
 import {
   fetchLesson,
   fetchMaterialsMeta,
+  setupMaterialsList,
   updateLessonNavigation,
 } from "./js/materials.js";
 
@@ -63,6 +64,7 @@ async function bootstrap() {
   setupTeacherButton();
   setupKeyboardShortcut();
   setupLessonNavigationButtons();
+  setupMaterialsList();
   setupFontSizeControl();
 
   elements.runButton.addEventListener("click", executeCode);
