@@ -25,6 +25,28 @@
       src="https://cdn.jsdelivr.net/npm/monaco-editor@0.43.0/min/vs/loader.min.js"
       defer
     ></script>
+    <script>
+      window.MathJax = {
+        tex: {
+          inlineMath: [
+            ["\\(", "\\)"],
+            ["$", "$"],
+          ],
+          displayMath: [
+            ["\\[", "\\]"],
+            ["$$", "$$"],
+          ],
+        },
+        options: {
+          skipHtmlTags: ["script", "noscript", "style", "textarea", "pre", "code"],
+        },
+      };
+    </script>
+    <script
+      id="mathjax-script"
+      defer
+      src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"
+    ></script>
     <!-- /static/app.js は ES Modules。BokehJS の動的ロードもここでやる -->
     <script src="/static/app.js" type="module" defer></script>
   </head>
@@ -42,6 +64,7 @@
         <div class="tabs" role="tablist">
           <button class="tab active" data-tab="graph" role="tab">グラフ表示</button>
           <button class="tab" data-tab="lesson" role="tab">教材</button>
+          <button class="tab" data-tab="lesson-list" role="tab">教材一覧</button>
         </div>
         <div class="tab-content">
           <div id="graph" class="tab-panel active" role="tabpanel">
@@ -58,6 +81,11 @@
             <article id="lesson-content" class="lesson-content">
               <p>教材を読み込んでいます...</p>
             </article>
+          </div>
+          <div id="lesson-list" class="tab-panel" role="tabpanel">
+            <div id="materials-list" class="materials-list">
+              <p>教材一覧を読み込んでいます...</p>
+            </div>
           </div>
         </div>
       </section>
