@@ -9,6 +9,12 @@ export const state = {
   materialsMeta: [],
   /** 取得済み教材（インデックス -> 教材データ）のキャッシュ */
   unlockedMaterials: new Map(),
+  /** サーバー上でUNLOCK済みの教材ID集合 */
+  unlockedMaterialIndexes: new Set([0]),
   /** 現在表示している教材のインデックス */
   currentLessonIndex: 0,
+  /** 現在のユーザー情報 */
+  currentUser: null,
+  /** 発行済みのアクセストークン */
+  authToken: null,
 };

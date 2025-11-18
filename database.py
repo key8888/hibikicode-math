@@ -1,0 +1,286 @@
+from __future__ import annotations
+
+import os
+import secrets
+import sqlite3
+from contextlib import closing
+from dataclasses import dataclass
+from hashlib import pbkdf2_hmac
+from pathlib import Path
+from typing import Iterable, List, Optional
+
+BASE_DIR = Path(__file__).resolve().parent
+DATA_DIR = BASE_DIR / "data"
+DB_PATH = DATA_DIR / "app.db"
+
+PASSWORD_ITERATIONS = 390000
+SALT_BYTES = 16
+
+
+@dataclass
+class UserRecord:
+    id: int
+    username: str
+    is_admin: bool
+
+
+def _ensure_data_dir() -> None:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def get_connection() -> sqlite3.Connection:
+    _ensure_data_dir()
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def hash_password(password: str, *, salt: Optional[bytes] = None) -> str:
+    if salt is None:
+        salt = os.urandom(SALT_BYTES)
+    dk = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS)
+    return f"{PASSWORD_ITERATIONS}${salt.hex()}${dk.hex()}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        iterations_str, salt_hex, hash_hex = stored_hash.split("$")
+        iterations = int(iterations_str)
+        salt = bytes.fromhex(salt_hex)
+    except (ValueError, TypeError):
+        return False
+    candidate = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, iterations)
+    return secrets.compare_digest(candidate.hex(), hash_hex)
+
+
+def init_db() -> None:
+    _ensure_data_dir()
+    with closing(get_connection()) as conn:
+        conn.executescript(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                is_admin INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS program_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                code TEXT NOT NULL,
+                stdout TEXT,
+                stderr TEXT,
+                success INTEGER NOT NULL,
+                execution_time REAL NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS unlocks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                material_id INTEGER NOT NULL,
+                unlocked_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, material_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                last_seen_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+            """
+        )
+        conn.commit()
+
+        existing_admin = conn.execute(
+            "SELECT id FROM users WHERE username = ?", ("admin",)
+        ).fetchone()
+        if existing_admin is None:
+            password_hash = hash_password("admin")
+            conn.execute(
+                "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, 1)",
+                ("admin", password_hash),
+            )
+            conn.commit()
+
+
+def get_user_by_username(username: str) -> Optional[UserRecord]:
+    with closing(get_connection()) as conn:
+        row = conn.execute(
+            "SELECT id, username, is_admin FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if row is None:
+            return None
+        return UserRecord(id=row["id"], username=row["username"], is_admin=bool(row["is_admin"]))
+
+
+def fetch_user_credentials(username: str) -> Optional[sqlite3.Row]:
+    with closing(get_connection()) as conn:
+        return conn.execute(
+            "SELECT id, username, password_hash, is_admin FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+
+
+def create_user(username: str, password: str, *, is_admin: bool = False) -> int:
+    password_hash = hash_password(password)
+    with closing(get_connection()) as conn:
+        cursor = conn.execute(
+            "INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)",
+            (username, password_hash, 1 if is_admin else 0),
+        )
+        conn.commit()
+        return cursor.lastrowid
+
+
+def update_user_password(username: str, password: str) -> bool:
+    password_hash = hash_password(password)
+    with closing(get_connection()) as conn:
+        cursor = conn.execute(
+            "UPDATE users SET password_hash = ? WHERE username = ?",
+            (password_hash, username),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def delete_user(username: str) -> bool:
+    with closing(get_connection()) as conn:
+        cursor = conn.execute("DELETE FROM users WHERE username = ?", (username,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def list_users() -> List[dict]:
+    with closing(get_connection()) as conn:
+        rows = conn.execute(
+            "SELECT id, username, is_admin, created_at FROM users ORDER BY id"
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def create_session(user_id: int) -> str:
+    token = secrets.token_hex(32)
+    with closing(get_connection()) as conn:
+        conn.execute(
+            "INSERT INTO sessions (token, user_id) VALUES (?, ?)",
+            (token, user_id),
+        )
+        conn.commit()
+    return token
+
+
+def delete_session(token: str) -> None:
+    with closing(get_connection()) as conn:
+        conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+        conn.commit()
+
+
+def get_user_by_token(token: str) -> Optional[UserRecord]:
+    with closing(get_connection()) as conn:
+        row = conn.execute(
+            """
+            SELECT users.id, users.username, users.is_admin
+            FROM sessions
+            JOIN users ON sessions.user_id = users.id
+            WHERE sessions.token = ?
+            """,
+            (token,),
+        ).fetchone()
+        if row is None:
+            return None
+        conn.execute(
+            "UPDATE sessions SET last_seen_at = CURRENT_TIMESTAMP WHERE token = ?",
+            (token,),
+        )
+        conn.commit()
+        return UserRecord(id=row["id"], username=row["username"], is_admin=bool(row["is_admin"]))
+
+
+def record_program_run(
+    user_id: int,
+    code: str,
+    stdout: str,
+    stderr: str,
+    success: bool,
+    execution_time: float,
+) -> None:
+    with closing(get_connection()) as conn:
+        conn.execute(
+            """
+            INSERT INTO program_runs (user_id, code, stdout, stderr, success, execution_time)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, code, stdout, stderr, 1 if success else 0, execution_time),
+        )
+        conn.commit()
+
+
+def record_unlock(user_id: int, material_id: int) -> None:
+    with closing(get_connection()) as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO unlocks (user_id, material_id) VALUES (?, ?)",
+            (user_id, material_id),
+        )
+        conn.commit()
+
+
+def get_user_unlocks(user_id: int) -> List[int]:
+    with closing(get_connection()) as conn:
+        rows = conn.execute(
+            "SELECT material_id FROM unlocks WHERE user_id = ? ORDER BY material_id",
+            (user_id,),
+        ).fetchall()
+        return [int(row["material_id"]) for row in rows]
+
+
+def has_unlocked(user_id: int, material_id: int) -> bool:
+    with closing(get_connection()) as conn:
+        row = conn.execute(
+            "SELECT 1 FROM unlocks WHERE user_id = ? AND material_id = ?",
+            (user_id, material_id),
+        ).fetchone()
+        return row is not None
+
+
+def list_user_programs(username: str, limit: Optional[int] = None) -> List[dict]:
+    with closing(get_connection()) as conn:
+        user_row = conn.execute(
+            "SELECT id FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if user_row is None:
+            return []
+        query = (
+            "SELECT code, stdout, stderr, success, execution_time, created_at "
+            "FROM program_runs WHERE user_id = ? ORDER BY created_at DESC"
+        )
+        params: Iterable = (user_row["id"],)
+        if limit is not None:
+            query += " LIMIT ?"
+            params = (user_row["id"], limit)
+        rows = conn.execute(query, params).fetchall()
+        return [dict(row) for row in rows]
+
+
+def list_user_unlocks(username: str) -> List[dict]:
+    with closing(get_connection()) as conn:
+        user_row = conn.execute(
+            "SELECT id FROM users WHERE username = ?",
+            (username,),
+        ).fetchone()
+        if user_row is None:
+            return []
+        rows = conn.execute(
+            "SELECT material_id, unlocked_at FROM unlocks WHERE user_id = ? ORDER BY material_id",
+            (user_row["id"],),
+        ).fetchall()
+        return [dict(row) for row in rows]

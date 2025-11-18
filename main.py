@@ -16,12 +16,27 @@ import numpy as np
 from bokeh.embed import json_item
 from bokeh.models import LayoutDOM
 from bokeh.plotting import ColumnDataSource, figure
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from markdown import markdown
 from pydantic import BaseModel
+
+from database import (
+    UserRecord,
+    create_session,
+    delete_session,
+    fetch_user_credentials,
+    get_user_by_token,
+    get_user_unlocks,
+    has_unlocked,
+    init_db,
+    record_program_run,
+    record_unlock,
+    verify_password,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 LESSON_DIR = BASE_DIR / "lessons"
@@ -38,6 +53,11 @@ class CodeRequest(BaseModel):
 
 class MaterialUnlockRequest(BaseModel):
     password: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
 
 
 def _load_materials() -> list[dict[str, Any]]:
@@ -59,6 +79,28 @@ def _load_materials() -> list[dict[str, Any]]:
 
 
 MATERIALS = _load_materials()
+
+
+security = HTTPBearer(auto_error=False)
+
+
+def _user_payload(user: UserRecord) -> Dict[str, Any]:
+    return {"id": user.id, "username": user.username, "is_admin": user.is_admin}
+
+
+def _auth_payload(user: UserRecord, token: str) -> Dict[str, Any]:
+    return {"token": token, "user": _user_payload(user), "unlocks": get_user_unlocks(user.id)}
+
+
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+) -> UserRecord:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="認証情報が必要です")
+    user = get_user_by_token(credentials.credentials)
+    if user is None:
+        raise HTTPException(status_code=401, detail="認証情報が無効です")
+    return user
 
 
 def _allowed_builtins() -> Dict[str, Any]:
@@ -298,6 +340,11 @@ app.add_middleware(
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
+@app.on_event("startup")
+def on_startup() -> None:
+    init_db()
+
+
 @app.get("/")
 def root() -> FileResponse:
     index_file = STATIC_DIR / "index.html"
@@ -306,35 +353,77 @@ def root() -> FileResponse:
     return FileResponse(index_file)
 
 
+@app.post("/api/auth/login")
+async def login(request: LoginRequest) -> Dict[str, Any]:
+    username = request.username.strip()
+    password = request.password
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="ユーザー名とパスワードを入力してください")
+    record = fetch_user_credentials(username)
+    if record is None or not verify_password(password, record["password_hash"]):
+        raise HTTPException(status_code=401, detail="ユーザー名またはパスワードが正しくありません")
+    user = UserRecord(id=record["id"], username=record["username"], is_admin=bool(record["is_admin"]))
+    token = create_session(user.id)
+    return _auth_payload(user, token)
+
+
+@app.post("/api/auth/logout")
+async def logout(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, str]:
+    if credentials is None:
+        raise HTTPException(status_code=401, detail="認証情報が必要です")
+    delete_session(credentials.credentials)
+    return {"status": "ok"}
+
+
+@app.get("/api/auth/me")
+async def auth_me(current_user: UserRecord = Depends(get_current_user)) -> Dict[str, Any]:
+    return {"user": _user_payload(current_user), "unlocks": get_user_unlocks(current_user.id)}
+
+
 @app.post("/api/execute")
-async def run_code(request: CodeRequest) -> JSONResponse:
+async def run_code(request: CodeRequest, current_user: UserRecord = Depends(get_current_user)) -> JSONResponse:
     if not request.code.strip():
         raise HTTPException(status_code=400, detail="コードが空です")
     result = execute_code(request.code)
+    record_program_run(
+        current_user.id,
+        request.code,
+        result.get("stdout", ""),
+        result.get("stderr", ""),
+        bool(result.get("success")),
+        float(result.get("execution_time", 0.0)),
+    )
     return JSONResponse(result)
 
 
 @app.get("/api/materials")
-async def get_materials() -> Dict[str, Any]:
+async def get_materials(_: UserRecord = Depends(get_current_user)) -> Dict[str, Any]:
     return {"materials": [{"id": m["id"], "title": m["title"]} for m in MATERIALS]}
 
 
 @app.get("/api/materials/{material_id}")
-async def get_material(material_id: int) -> Dict[str, Any]:
+async def get_material(material_id: int, current_user: UserRecord = Depends(get_current_user)) -> Dict[str, Any]:
     if material_id < 0 or material_id >= len(MATERIALS):
         raise HTTPException(status_code=404, detail="教材が見つかりません")
-    if material_id == 0:
+    if material_id == 0 or current_user.is_admin or has_unlocked(current_user.id, material_id):
         return MATERIALS[material_id]
     raise HTTPException(status_code=403, detail="この教材を閲覧するにはパスワードが必要です")
 
 
 @app.post("/api/materials/{material_id}/unlock")
-async def unlock_material(material_id: int, request: MaterialUnlockRequest) -> Dict[str, Any]:
+async def unlock_material(
+    material_id: int,
+    request: MaterialUnlockRequest,
+    current_user: UserRecord = Depends(get_current_user),
+) -> Dict[str, Any]:
     if material_id < 0 or material_id >= len(MATERIALS):
         raise HTTPException(status_code=404, detail="教材が見つかりません")
     if material_id == 0:
         return MATERIALS[material_id]
+    if has_unlocked(current_user.id, material_id):
+        return MATERIALS[material_id]
     if (request.password or "").strip() == LESSON_PASSWORD:
+        record_unlock(current_user.id, material_id)
         return MATERIALS[material_id]
     raise HTTPException(status_code=403, detail="パスワードが正しくありません")
 

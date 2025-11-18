@@ -3,6 +3,7 @@ import { state } from "./state.js";
 import { activateTab } from "./tabs.js";
 import { renderPlot } from "./bokeh.js";
 import { updateLog } from "./log.js";
+import { apiClient } from "./api.js";
 
 /**
  * サーバーにコードを送信して実行し、結果を UI に反映する。
@@ -23,7 +24,7 @@ export async function executeCode() {
   const code = state.editorInstance.getValue();
 
   try {
-    const response = await axios.post("/api/execute", { code });
+    const response = await apiClient.post("/api/execute", { code });
     const result = response.data;
     updateLog(result);
 

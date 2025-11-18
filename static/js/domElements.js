@@ -23,4 +23,10 @@ export const elements = {
   horizontalSplitter: document.getElementById("horizontal-splitter"),
   logArea: document.querySelector(".log-area"),
   materialsList: document.getElementById("materials-list"),
+  authOverlay: document.getElementById("auth-overlay"),
+  loginForm: document.getElementById("login-form"),
+  loginUsername: document.getElementById("login-username"),
+  loginPassword: document.getElementById("login-password"),
+  loginSubmit: document.getElementById("login-submit"),
+  loginError: document.getElementById("login-error"),
 };
