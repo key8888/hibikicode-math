@@ -1,5 +1,6 @@
 import { elements } from "./domElements.js";
 import { state } from "./state.js";
+import { apiClient } from "./api.js";
 
 const PASSWORD_PROMPT_MESSAGE =
   "先生に確認しましたか？\n先生に「パスワード」をもらってください";
@@ -20,7 +21,7 @@ function requestMathTypeset() {
 }
 
 function isMaterialUnlocked(index) {
-  return index === 0 || state.unlockedMaterials.has(index);
+  return state.unlockedMaterialIndexes.has(index);
 }
 
 /**
@@ -96,7 +97,7 @@ function renderMaterialsList() {
  */
 export async function fetchMaterialsMeta() {
   try {
-    const response = await axios.get("/api/materials");
+    const response = await apiClient.get("/api/materials");
     state.materialsMeta = response.data.materials || [];
     updateLessonNavigation();
     renderMaterialsList();
@@ -125,18 +126,20 @@ export async function fetchLesson(index, options = {}) {
 
   try {
     let response;
-    if (index === 0) {
-      response = await axios.get(`/api/materials/${index}`);
+    if (index === 0 || state.unlockedMaterialIndexes.has(index)) {
+      response = await apiClient.get(`/api/materials/${index}`);
     } else if (options.password) {
-      response = await axios.post(`/api/materials/${index}/unlock`, {
+      response = await apiClient.post(`/api/materials/${index}/unlock`, {
         password: options.password,
       });
+      state.unlockedMaterialIndexes.add(index);
     } else {
       throw new Error("locked");
     }
 
     const material = response.data;
     state.unlockedMaterials.set(index, material);
+    state.unlockedMaterialIndexes.add(index);
     state.currentLessonIndex = index;
     renderLesson(material);
     updateLessonNavigation();

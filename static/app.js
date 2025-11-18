@@ -5,6 +5,7 @@ import { setupSplitters } from "./js/splitters.js";
 import { setupTeacherButton } from "./js/audio.js";
 import { initializeEditor, resetEditor, setupFontSizeControl } from "./js/editor.js";
 import { executeCode } from "./js/codeRunner.js";
+import { ensureAuthenticated } from "./js/auth.js";
 import {
   fetchLesson,
   fetchMaterialsMeta,
@@ -41,7 +42,7 @@ function setupLessonNavigationButtons() {
     if (state.currentLessonIndex >= state.materialsMeta.length - 1) return;
     const nextIndex = state.currentLessonIndex + 1;
 
-    if (state.unlockedMaterials.has(nextIndex)) {
+    if (state.unlockedMaterialIndexes.has(nextIndex)) {
       await fetchLesson(nextIndex);
       return;
     }
@@ -72,6 +73,7 @@ async function bootstrap() {
 
   initializeEditor();
 
+  await ensureAuthenticated();
   await fetchMaterialsMeta();
   if (state.materialsMeta.length > 0) {
     fetchLesson(0);
