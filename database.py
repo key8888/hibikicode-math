@@ -141,6 +141,36 @@ def create_user(username: str, password: str, *, is_admin: bool = False) -> int:
         return cursor.lastrowid
 
 
+def update_user(
+    user_id: int,
+    *,
+    username: Optional[str] = None,
+    password: Optional[str] = None,
+    is_admin: Optional[bool] = None,
+) -> bool:
+    updates: list[str] = []
+    params: list[object] = []
+    if username is not None:
+        updates.append("username = ?")
+        params.append(username)
+    if password is not None:
+        updates.append("password_hash = ?")
+        params.append(hash_password(password))
+    if is_admin is not None:
+        updates.append("is_admin = ?")
+        params.append(1 if is_admin else 0)
+    if not updates:
+        return False
+    params.append(user_id)
+    with closing(get_connection()) as conn:
+        cursor = conn.execute(
+            f"UPDATE users SET {', '.join(updates)} WHERE id = ?",
+            tuple(params),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+
+
 def update_user_password(username: str, password: str) -> bool:
     password_hash = hash_password(password)
     with closing(get_connection()) as conn:
@@ -155,6 +185,13 @@ def update_user_password(username: str, password: str) -> bool:
 def delete_user(username: str) -> bool:
     with closing(get_connection()) as conn:
         cursor = conn.execute("DELETE FROM users WHERE username = ?", (username,))
+        conn.commit()
+        return cursor.rowcount > 0
+
+
+def delete_user_by_id(user_id: int) -> bool:
+    with closing(get_connection()) as conn:
+        cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
         return cursor.rowcount > 0
 
@@ -267,6 +304,22 @@ def list_user_programs(username: str, limit: Optional[int] = None) -> List[dict]
         if limit is not None:
             query += " LIMIT ?"
             params = (user_row["id"], limit)
+        rows = conn.execute(query, params).fetchall()
+        return [dict(row) for row in rows]
+
+
+def list_program_runs_by_user_id(
+    user_id: int, limit: Optional[int] = None
+) -> List[dict]:
+    with closing(get_connection()) as conn:
+        query = (
+            "SELECT id, code, stdout, stderr, success, execution_time, created_at "
+            "FROM program_runs WHERE user_id = ? ORDER BY created_at DESC"
+        )
+        params: Iterable = (user_id,)
+        if limit is not None:
+            query += " LIMIT ?"
+            params = (user_id, limit)
         rows = conn.execute(query, params).fetchall()
         return [dict(row) for row in rows]
 

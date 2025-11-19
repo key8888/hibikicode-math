@@ -88,6 +88,12 @@
         <button id="run-button" class="primary">実行</button>
         <button id="reset-button">リセット</button>
         <button id="call-teacher-button" class="accent">先生を召喚する</button>
+        <button id="history-button" class="secondary">プログラム履歴</button>
+        <button id="user-management-button" class="secondary hidden-control">
+          ユーザー管理
+        </button>
+        <span id="current-username" class="username-pill" aria-live="polite"></span>
+        <button id="logout-button" class="ghost">ログアウト</button>
       </div>
     </header>
     <main class="workspace">
@@ -168,5 +174,65 @@ plot.xaxis.axis_label = "x"
 plot.yaxis.axis_label = "y"
 print("グラフを描画しました！")
     </template>
+
+    <div
+      id="history-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="history-modal-title"
+    >
+      <div class="modal-content">
+        <header class="modal-header">
+          <h2 id="history-modal-title">プログラム履歴</h2>
+          <button id="history-modal-close" class="icon-button" aria-label="閉じる">
+            ×
+          </button>
+        </header>
+        <div id="history-list" class="history-list">
+          <p>履歴がありません。</p>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="user-management-modal"
+      class="modal hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="user-management-title"
+    >
+      <div class="modal-content wide">
+        <header class="modal-header">
+          <h2 id="user-management-title">ユーザー管理</h2>
+          <button id="user-management-close" class="icon-button" aria-label="閉じる">
+            ×
+          </button>
+        </header>
+        <section class="user-create">
+          <h3>新規ユーザー作成</h3>
+          <form id="user-create-form" class="user-form">
+            <label>
+              ユーザー名
+              <input id="new-user-username" type="text" required />
+            </label>
+            <label>
+              初期パスワード
+              <input id="new-user-password" type="password" required />
+            </label>
+            <label class="checkbox">
+              <input id="new-user-is-admin" type="checkbox" /> 管理者権限を付与
+            </label>
+            <button type="submit" class="primary">作成</button>
+          </form>
+        </section>
+        <section class="user-list">
+          <h3>登録済みユーザー</h3>
+          <div id="user-management-list">
+            <p>ユーザー情報を読み込んでいます...</p>
+          </div>
+        </section>
+      </div>
+    </div>
   </body>
 </html>

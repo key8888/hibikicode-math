@@ -130,8 +130,14 @@ body.resizing-y {
   font-size: 1.2rem;
 }
 
+.toolbar-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .toolbar-buttons button {
-  margin-left: 0.5rem;
+  margin-left: 0;
 }
 
 button {
@@ -156,9 +162,28 @@ button.secondary {
   border: 1px solid var(--border-color);
 }
 
+button.ghost {
+  background: transparent;
+  color: white;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
 button:hover {
   transform: translateY(-1px);
   box-shadow: 0 4px 10px var(--shadow-color);
+}
+
+.hidden-control {
+  display: none !important;
+}
+
+.username-pill {
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  font-weight: 600;
+  min-width: 90px;
+  text-align: center;
 }
 
 /* ===== ワークスペース：左右を flex で管理 ===== */
@@ -315,6 +340,181 @@ button:hover {
 .log-output.error {
   background: #7f1d1d;
   color: #fde8e8;
+}
+
+/* ===== モーダル ===== */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 2rem;
+  z-index: 999;
+  transition: opacity 0.2s ease;
+}
+
+.modal.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-content {
+  background: white;
+  border-radius: 16px;
+  max-width: 720px;
+  width: 100%;
+  max-height: 90vh;
+  overflow: auto;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.modal-content.wide {
+  max-width: 960px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+}
+
+.modal-header h2 {
+  margin: 0;
+}
+
+.icon-button {
+  border-radius: 999px;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  background: white;
+  font-size: 1.1rem;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.history-entry {
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 1rem;
+  background: rgba(243, 244, 246, 0.6);
+}
+
+.history-entry header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.history-entry pre {
+  background: #111827;
+  color: #f9fafb;
+  padding: 0.75rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.history-entry .history-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  font-size: 0.9rem;
+  color: #374151;
+}
+
+.history-entry .history-label {
+  margin: 0.5rem 0 0.25rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #1f2937;
+}
+
+.status-badge {
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.status-badge.success {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.status-badge.fail {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.user-form {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.user-form label {
+  display: flex;
+  flex-direction: column;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.user-form input[type="text"],
+.user-form input[type="password"] {
+  margin-top: 0.3rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  min-width: 180px;
+}
+
+.user-form .checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 500;
+}
+
+.user-list h3,
+.user-create h3 {
+  margin-top: 0;
+}
+
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.user-table th,
+.user-table td {
+  border-bottom: 1px solid var(--border-color);
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.user-table th {
+  background: rgba(243, 244, 246, 0.8);
+}
+
+.user-table td.actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
 }
 
 /* 教材 */
