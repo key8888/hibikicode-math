@@ -2,12 +2,27 @@ import { elements } from "./domElements.js";
 import { state } from "./state.js";
 import { apiClient, getStoredToken, setAuthToken } from "./api.js";
 
+function updateUserInterface() {
+  if (elements.currentUsername) {
+    const username = state.currentUser?.username || "";
+    elements.currentUsername.textContent = username;
+  }
+  if (elements.userManagementButton) {
+    const shouldShow = Boolean(state.currentUser?.is_admin);
+    elements.userManagementButton.classList.toggle("hidden-control", !shouldShow);
+  }
+  if (elements.logoutButton) {
+    elements.logoutButton.disabled = !state.currentUser;
+  }
+}
+
 function applyProfile(payload) {
   const unlocks = Array.isArray(payload.unlocks) ? payload.unlocks : [];
   state.currentUser = payload.user || null;
   state.unlockedMaterials = new Map();
   state.unlockedMaterialIndexes = new Set([0, ...unlocks]);
   state.currentLessonIndex = 0;
+  updateUserInterface();
 }
 
 function toggleOverlay(show) {
@@ -27,6 +42,8 @@ function showError(message) {
     elements.loginError.textContent = message || "";
   }
 }
+
+updateUserInterface();
 
 async function handleLoginSubmit(event, resolve) {
   event.preventDefault();
@@ -82,6 +99,8 @@ export async function ensureAuthenticated() {
       console.warn("Stored token invalid", error);
       setAuthToken(null);
       state.authToken = null;
+      state.currentUser = null;
+      updateUserInterface();
     }
   }
 
@@ -98,4 +117,18 @@ export async function ensureAuthenticated() {
     });
     elements.loginForm.addEventListener("submit", listener);
   });
+}
+
+export async function logout() {
+  try {
+    await apiClient.post("/api/auth/logout");
+  } catch (error) {
+    console.warn("Logout failed", error);
+  } finally {
+    setAuthToken(null);
+    state.authToken = null;
+    state.currentUser = null;
+    updateUserInterface();
+    window.location.reload();
+  }
 }

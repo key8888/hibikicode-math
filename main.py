@@ -2,6 +2,7 @@ import contextlib
 import io
 import math
 import os
+import sqlite3
 try:
     import resource
 except ImportError:  # pragma: no cover - Windows環境では resource が利用できない
@@ -27,14 +28,19 @@ from pydantic import BaseModel
 from database import (
     UserRecord,
     create_session,
+    create_user,
     delete_session,
+    delete_user_by_id,
     fetch_user_credentials,
     get_user_by_token,
     get_user_unlocks,
     has_unlocked,
     init_db,
+    list_program_runs_by_user_id,
+    list_users,
     record_program_run,
     record_unlock,
+    update_user,
     verify_password,
 )
 
@@ -58,6 +64,18 @@ class MaterialUnlockRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str
     password: str
+
+
+class UserCreateRequest(BaseModel):
+    username: str
+    password: str
+    is_admin: bool = False
+
+
+class UserUpdateRequest(BaseModel):
+    username: Optional[str] = None
+    password: Optional[str] = None
+    is_admin: Optional[bool] = None
 
 
 def _load_materials() -> list[dict[str, Any]]:
@@ -90,6 +108,11 @@ def _user_payload(user: UserRecord) -> Dict[str, Any]:
 
 def _auth_payload(user: UserRecord, token: str) -> Dict[str, Any]:
     return {"token": token, "user": _user_payload(user), "unlocks": get_user_unlocks(user.id)}
+
+
+def _ensure_admin(user: UserRecord) -> None:
+    if not user.is_admin:
+        raise HTTPException(status_code=403, detail="管理者権限が必要です")
 
 
 def get_current_user(
@@ -396,6 +419,15 @@ async def run_code(request: CodeRequest, current_user: UserRecord = Depends(get_
     return JSONResponse(result)
 
 
+@app.get("/api/programs/history")
+async def get_program_history(
+    limit: int = 20, current_user: UserRecord = Depends(get_current_user)
+) -> Dict[str, Any]:
+    safe_limit = max(1, min(limit, 100))
+    history = list_program_runs_by_user_id(current_user.id, safe_limit)
+    return {"history": history}
+
+
 @app.get("/api/materials")
 async def get_materials(_: UserRecord = Depends(get_current_user)) -> Dict[str, Any]:
     return {"materials": [{"id": m["id"], "title": m["title"]} for m in MATERIALS]}
@@ -426,6 +458,65 @@ async def unlock_material(
         record_unlock(current_user.id, material_id)
         return MATERIALS[material_id]
     raise HTTPException(status_code=403, detail="パスワードが正しくありません")
+
+
+@app.get("/api/admin/users")
+async def admin_list_users(current_user: UserRecord = Depends(get_current_user)) -> Dict[str, Any]:
+    _ensure_admin(current_user)
+    users = list_users()
+    for user in users:
+        user["is_admin"] = bool(user.get("is_admin"))
+    return {"users": users}
+
+
+@app.post("/api/admin/users")
+async def admin_create_user(
+    request: UserCreateRequest, current_user: UserRecord = Depends(get_current_user)
+) -> Dict[str, Any]:
+    _ensure_admin(current_user)
+    username = request.username.strip()
+    password = request.password
+    if not username or not password:
+        raise HTTPException(status_code=400, detail="ユーザー名とパスワードは必須です")
+    try:
+        user_id = create_user(username, password, is_admin=request.is_admin)
+    except sqlite3.IntegrityError as exc:  # pragma: no cover - uniqueness constraint
+        raise HTTPException(status_code=400, detail="同じユーザー名が既に存在します") from exc
+    return {"user": {"id": user_id, "username": username, "is_admin": request.is_admin}}
+
+
+@app.put("/api/admin/users/{user_id}")
+async def admin_update_user(
+    user_id: int,
+    request: UserUpdateRequest,
+    current_user: UserRecord = Depends(get_current_user),
+) -> Dict[str, str]:
+    _ensure_admin(current_user)
+    payload = request.dict(exclude_unset=True)
+    if not payload:
+        raise HTTPException(status_code=400, detail="更新する項目がありません")
+    try:
+        updated = update_user(
+            user_id,
+            username=payload.get("username"),
+            password=payload.get("password"),
+            is_admin=payload.get("is_admin"),
+        )
+    except sqlite3.IntegrityError as exc:  # pragma: no cover - uniqueness constraint
+        raise HTTPException(status_code=400, detail="同じユーザー名が既に存在します") from exc
+    if not updated:
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    return {"status": "ok"}
+
+
+@app.delete("/api/admin/users/{user_id}")
+async def admin_delete_user(
+    user_id: int, current_user: UserRecord = Depends(get_current_user)
+) -> Dict[str, str]:
+    _ensure_admin(current_user)
+    if not delete_user_by_id(user_id):
+        raise HTTPException(status_code=404, detail="ユーザーが見つかりません")
+    return {"status": "ok"}
 
 
 @app.get("/api/status")

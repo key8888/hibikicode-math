@@ -5,13 +5,15 @@ import { setupSplitters } from "./js/splitters.js";
 import { setupTeacherButton } from "./js/audio.js";
 import { initializeEditor, resetEditor, setupFontSizeControl } from "./js/editor.js";
 import { executeCode } from "./js/codeRunner.js";
-import { ensureAuthenticated } from "./js/auth.js";
+import { ensureAuthenticated, logout } from "./js/auth.js";
 import {
   fetchLesson,
   fetchMaterialsMeta,
   setupMaterialsList,
   updateLessonNavigation,
 } from "./js/materials.js";
+import { setupProgramHistory } from "./js/history.js";
+import { setupUserManagement } from "./js/adminUsers.js";
 
 /**
  * Ctrl + Enter で実行ボタンを押せるようにするキーボードショートカット。
@@ -67,9 +69,12 @@ async function bootstrap() {
   setupLessonNavigationButtons();
   setupMaterialsList();
   setupFontSizeControl();
+  setupProgramHistory();
+  setupUserManagement();
 
   elements.runButton.addEventListener("click", executeCode);
   elements.resetButton.addEventListener("click", resetEditor);
+  elements.logoutButton?.addEventListener("click", logout);
 
   initializeEditor();
 
