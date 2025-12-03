@@ -391,6 +391,8 @@ button:hover {
 }
 
 .icon-button {
+  padding-left: 0.67rem;
+  padding-top: 0.4rem;
   border-radius: 999px;
   width: 36px;
   height: 36px;
