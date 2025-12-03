@@ -6,6 +6,7 @@
     <title>hibikicode math lab</title>
     <link rel="icon" href="/static/favicon.ico" />
     <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/user-management.css" />
     <!-- ▼ BokehJSは読み込まない（app.jsでサーバーのバージョンに合わせて動的ロード） -->
     <script
       src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"
@@ -197,7 +198,7 @@ print("グラフを描画しました！")
 
     <div
       id="user-management-modal"
-      class="modal hidden"
+      class="modal hidden user-management-modal"
       role="dialog"
       aria-modal="true"
       aria-labelledby="user-management-title"
@@ -220,10 +221,12 @@ print("グラフを描画しました！")
               初期パスワード
               <input id="new-user-password" type="password" required />
             </label>
-            <label class="checkbox">
-              <input id="new-user-is-admin" type="checkbox" /> 管理者権限を付与
+            <label class="checkbox admin-checkbox">
+              <input id="new-user-is-admin" type="checkbox" />
+              <div class="checkmark" aria-hidden="true"></div>
+              <span>管理者権限を付与</span>
             </label>
-            <button type="submit" class="primary">作成</button>
+            <button type="submit" class="primary user-action-button">作成</button>
           </form>
         </section>
         <section class="user-list">

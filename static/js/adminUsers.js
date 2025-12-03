@@ -50,6 +50,7 @@ function renderUsers(users = []) {
     if (actionsCell) {
       const toggleButton = document.createElement("button");
       toggleButton.type = "button";
+      toggleButton.className = "user-action-button";
       toggleButton.dataset.action = "toggle-admin";
       toggleButton.dataset.userId = String(user.id);
       toggleButton.dataset.isAdmin = user.is_admin ? "true" : "false";
@@ -58,6 +59,7 @@ function renderUsers(users = []) {
 
       const passwordButton = document.createElement("button");
       passwordButton.type = "button";
+      passwordButton.className = "user-action-button";
       passwordButton.dataset.action = "reset-password";
       passwordButton.dataset.userId = String(user.id);
       passwordButton.dataset.username = user.username;
@@ -66,6 +68,7 @@ function renderUsers(users = []) {
 
       const deleteButton = document.createElement("button");
       deleteButton.type = "button";
+      deleteButton.className = "user-action-button";
       deleteButton.dataset.action = "delete";
       deleteButton.dataset.userId = String(user.id);
       deleteButton.dataset.username = user.username;
