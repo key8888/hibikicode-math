@@ -53,7 +53,10 @@ function renderUsers(users = []) {
       toggleButton.dataset.action = "toggle-admin";
       toggleButton.dataset.userId = String(user.id);
       toggleButton.dataset.isAdmin = user.is_admin ? "true" : "false";
-      toggleButton.textContent = user.is_admin ? "管理者解除" : "管理者付与";
+      toggleButton.className = "user-action-button outline";
+      toggleButton.innerHTML = `<span>${
+        user.is_admin ? "管理者解除" : "管理者付与"
+      }</span>`;
       actionsCell.appendChild(toggleButton);
 
       const passwordButton = document.createElement("button");
@@ -61,7 +64,8 @@ function renderUsers(users = []) {
       passwordButton.dataset.action = "reset-password";
       passwordButton.dataset.userId = String(user.id);
       passwordButton.dataset.username = user.username;
-      passwordButton.textContent = "パスワード変更";
+      passwordButton.className = "user-action-button";
+      passwordButton.innerHTML = "<span>パスワード変更</span>";
       actionsCell.appendChild(passwordButton);
 
       const deleteButton = document.createElement("button");
@@ -69,7 +73,8 @@ function renderUsers(users = []) {
       deleteButton.dataset.action = "delete";
       deleteButton.dataset.userId = String(user.id);
       deleteButton.dataset.username = user.username;
-      deleteButton.textContent = "削除";
+      deleteButton.className = "user-action-button danger";
+      deleteButton.innerHTML = "<span>削除</span>";
       actionsCell.appendChild(deleteButton);
     }
     tbody.appendChild(row);

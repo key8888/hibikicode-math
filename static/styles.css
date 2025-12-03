@@ -460,63 +460,6 @@ button:hover {
   color: #b91c1c;
 }
 
-.user-form {
-  display: flex;
-  gap: 1rem;
-  flex-wrap: wrap;
-  align-items: flex-end;
-}
-
-.user-form label {
-  display: flex;
-  flex-direction: column;
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.user-form input[type="text"],
-.user-form input[type="password"] {
-  margin-top: 0.3rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  min-width: 180px;
-}
-
-.user-form .checkbox {
-  flex-direction: row;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 500;
-}
-
-.user-list h3,
-.user-create h3 {
-  margin-top: 0;
-}
-
-.user-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-.user-table th,
-.user-table td {
-  border-bottom: 1px solid var(--border-color);
-  padding: 0.5rem;
-  text-align: left;
-}
-
-.user-table th {
-  background: rgba(243, 244, 246, 0.8);
-}
-
-.user-table td.actions {
-  display: flex;
-  gap: 0.35rem;
-  flex-wrap: wrap;
-}
-
 /* 教材 */
 
 .lesson-header {
