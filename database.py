@@ -5,6 +5,7 @@ import secrets
 import sqlite3
 from contextlib import closing
 from dataclasses import dataclass
+from datetime import datetime
 from hashlib import pbkdf2_hmac
 from pathlib import Path
 from typing import Iterable, List, Optional
@@ -306,6 +307,54 @@ def list_user_programs(username: str, limit: Optional[int] = None) -> List[dict]
             params = (user_row["id"], limit)
         rows = conn.execute(query, params).fetchall()
         return [dict(row) for row in rows]
+
+
+def _parse_timestamp(timestamp: str) -> Optional[datetime]:
+    try:
+        return datetime.fromisoformat(timestamp)
+    except (TypeError, ValueError):
+        return None
+
+
+def get_last_program_run_time(user_id: int) -> Optional[datetime]:
+    with closing(get_connection()) as conn:
+        row = conn.execute(
+            "SELECT created_at FROM program_runs WHERE user_id = ? ORDER BY created_at DESC LIMIT 1",
+            (user_id,),
+        ).fetchone()
+        if row is None:
+            return None
+        return _parse_timestamp(row["created_at"])
+
+
+def get_execution_time_since(user_id: int, window_seconds: float) -> float:
+    with closing(get_connection()) as conn:
+        row = conn.execute(
+            """
+            SELECT COALESCE(SUM(execution_time), 0) AS total
+            FROM program_runs
+            WHERE user_id = ?
+              AND created_at >= datetime('now', ?)
+            """,
+            (user_id, f"-{int(window_seconds)} seconds"),
+        ).fetchone()
+        return float(row["total"] if row else 0.0)
+
+
+def get_oldest_run_within_window(user_id: int, window_seconds: float) -> Optional[datetime]:
+    with closing(get_connection()) as conn:
+        row = conn.execute(
+            """
+            SELECT MIN(created_at) AS oldest
+            FROM program_runs
+            WHERE user_id = ?
+              AND created_at >= datetime('now', ?)
+            """,
+            (user_id, f"-{int(window_seconds)} seconds"),
+        ).fetchone()
+        if row is None or row["oldest"] is None:
+            return None
+        return _parse_timestamp(row["oldest"])
 
 
 def list_program_runs_by_user_id(
