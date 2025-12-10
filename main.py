@@ -3,6 +3,7 @@ import io
 import math
 import os
 import sqlite3
+from datetime import datetime
 try:
     import resource
 except ImportError:  # pragma: no cover - Windows環境では resource が利用できない
@@ -33,6 +34,9 @@ from database import (
     delete_user_by_id,
     fetch_user_credentials,
     get_user_by_token,
+    get_execution_time_since,
+    get_last_program_run_time,
+    get_oldest_run_within_window,
     get_user_unlocks,
     has_unlocked,
     init_db,
@@ -51,6 +55,9 @@ STATIC_DIR = BASE_DIR / "static"
 LESSON_PASSWORD = os.getenv("LESSON_PASSWORD", "8858")
 EXECUTION_TIMEOUT = float(os.getenv("EXECUTION_TIMEOUT", "3.0"))
 MEMORY_LIMIT_MB = int(os.getenv("EXECUTION_MEMORY_LIMIT_MB", "1024"))
+MIN_EXECUTION_INTERVAL = float(os.getenv("MIN_EXECUTION_INTERVAL_SECONDS", "5.0"))
+USER_CPU_BUDGET_SECONDS = float(os.getenv("USER_CPU_BUDGET_SECONDS", "15.0"))
+USER_CPU_BUDGET_WINDOW_SECONDS = float(os.getenv("USER_CPU_BUDGET_WINDOW_SECONDS", "60.0"))
 
 
 class CodeRequest(BaseModel):
@@ -113,6 +120,26 @@ def _auth_payload(user: UserRecord, token: str) -> Dict[str, Any]:
 def _ensure_admin(user: UserRecord) -> None:
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
+
+
+def _seconds_until_next_run(user_id: int, now: datetime) -> float:
+    last_run = get_last_program_run_time(user_id)
+    if last_run is None:
+        return 0.0
+    return max(0.0, MIN_EXECUTION_INTERVAL - (now - last_run).total_seconds())
+
+
+def _seconds_until_cpu_budget_resets(user_id: int, now: datetime) -> float:
+    if USER_CPU_BUDGET_SECONDS <= 0:
+        return 0.0
+    recent_cpu_usage = get_execution_time_since(user_id, USER_CPU_BUDGET_WINDOW_SECONDS)
+    if recent_cpu_usage < USER_CPU_BUDGET_SECONDS:
+        return 0.0
+    oldest_run = get_oldest_run_within_window(user_id, USER_CPU_BUDGET_WINDOW_SECONDS)
+    if oldest_run is None:
+        return MIN_EXECUTION_INTERVAL
+    elapsed = (now - oldest_run).total_seconds()
+    return max(1.0, USER_CPU_BUDGET_WINDOW_SECONDS - elapsed)
 
 
 def get_current_user(
@@ -407,6 +434,30 @@ async def auth_me(current_user: UserRecord = Depends(get_current_user)) -> Dict[
 async def run_code(request: CodeRequest, current_user: UserRecord = Depends(get_current_user)) -> JSONResponse:
     if not request.code.strip():
         raise HTTPException(status_code=400, detail="コードが空です")
+    now = datetime.utcnow()
+
+    wait_seconds = _seconds_until_next_run(current_user.id, now)
+    if wait_seconds > 0:
+        retry_after = math.ceil(wait_seconds)
+        raise HTTPException(
+            status_code=429,
+            detail=f"連続実行は {int(MIN_EXECUTION_INTERVAL)} 秒間隔です。あと {retry_after} 秒お待ちください。",
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    cpu_wait_seconds = _seconds_until_cpu_budget_resets(current_user.id, now)
+    if cpu_wait_seconds > 0:
+        retry_after = math.ceil(cpu_wait_seconds)
+        limit_window = int(USER_CPU_BUDGET_WINDOW_SECONDS)
+        limit_budget = int(USER_CPU_BUDGET_SECONDS)
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                f"CPU使用量の上限に達しました。{limit_window} 秒間に {limit_budget} 秒まで利用できます。"
+                f"あと {retry_after} 秒お待ちください。"
+            ),
+            headers={"Retry-After": str(retry_after)},
+        )
     result = execute_code(request.code)
     record_program_run(
         current_user.id,

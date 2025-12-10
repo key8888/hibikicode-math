@@ -149,6 +149,12 @@ button {
   transition: transform 0.1s ease, box-shadow 0.2s ease;
 }
 
+button.cooldown {
+  filter: saturate(35%);
+  opacity: 0.8;
+  cursor: not-allowed;
+}
+
 button.primary {
   background: #f9fafb;
   color: #1e3a8a;
