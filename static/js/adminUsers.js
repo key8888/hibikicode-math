@@ -1,6 +1,9 @@
 import { apiClient } from "./api.js";
 import { elements } from "./domElements.js";
 
+// 管理者だけが開けるユーザー管理モーダルの操作ロジックをまとめたモジュール。
+// API とのやり取り・テーブル描画・各種ボタンのイベント処理をここで一元管理する。
+
 function openUserManagementModal() {
   elements.userManagementModal?.classList.remove("hidden");
 }
@@ -17,6 +20,9 @@ function setUserListMessage(message) {
   elements.userManagementList.appendChild(paragraph);
 }
 
+/**
+ * 取得済みユーザー配列をテーブルとしてモーダルに描画する。
+ */
 function renderUsers(users = []) {
   if (!elements.userManagementList) return;
   if (!users.length) {
@@ -83,6 +89,9 @@ function renderUsers(users = []) {
   elements.userManagementList.appendChild(table);
 }
 
+/**
+ * サーバーから最新のユーザー一覧を取得し、UI に反映する。
+ */
 async function refreshUsers() {
   setUserListMessage("ユーザー情報を読み込んでいます...");
   try {
@@ -94,6 +103,9 @@ async function refreshUsers() {
   }
 }
 
+/**
+ * 追加フォーム送信時に新規ユーザーを作成する。
+ */
 async function handleCreateUser(event) {
   event.preventDefault();
   if (!elements.userCreateForm || !elements.newUserName || !elements.newUserPassword) {
@@ -120,6 +132,9 @@ async function handleCreateUser(event) {
   }
 }
 
+/**
+ * テーブル内のボタンクリックに応じて削除/権限変更/パスワード更新を実行する。
+ */
 async function handleListAction(event) {
   if (!(event.target instanceof Element)) return;
   const target = event.target.closest("button[data-action]");
@@ -148,6 +163,9 @@ async function handleListAction(event) {
   }
 }
 
+/**
+ * 管理モーダルの開閉、フォーム送信、テーブルボタンのイベントを登録する。
+ */
 export function setupUserManagement() {
   if (!elements.userManagementButton || !elements.userManagementModal) return;
   elements.userManagementButton.addEventListener("click", () => {

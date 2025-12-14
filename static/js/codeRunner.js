@@ -33,6 +33,7 @@ function refreshRunButtonState() {
 }
 
 function scheduleRunButtonTimer() {
+  // クールダウン中の秒数表示を一定間隔で更新する。二重で setInterval を張らないようガード。
   if (runButtonTimerId) return;
   runButtonTimerId = window.setInterval(() => {
     refreshRunButtonState();
@@ -44,17 +45,20 @@ function scheduleRunButtonTimer() {
 }
 
 function startCooldown(durationMs = MIN_EXECUTION_INTERVAL_MS) {
+  // サーバー側の連続実行制限に合わせて、クライアント側でもボタンを一定時間ロックする。
   cooldownEndsAt = Math.max(cooldownEndsAt, Date.now() + durationMs);
   scheduleRunButtonTimer();
   refreshRunButtonState();
 }
 
 function endExecution() {
+  // 実行完了時にフラグを戻し、runButton の文言も更新する。
   executionInFlight = false;
   refreshRunButtonState();
 }
 
 function beginExecution() {
+  // 実行開始時にフラグを立て、最低限のクールダウンを設定する。
   executionInFlight = true;
   startCooldown(MIN_EXECUTION_INTERVAL_MS);
 }
@@ -105,6 +109,7 @@ export async function executeCode() {
     updateLog(result);
 
     if (result.success && result.plot) {
+      // サーバーが返した Bokeh の json_item をそのまま描画する。
       await renderPlot(result.plot);
     } else {
       await renderPlot(null);

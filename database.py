@@ -26,10 +26,15 @@ class UserRecord:
 
 
 def _ensure_data_dir() -> None:
+    """データベースファイルの保存先ディレクトリを作成する。"""
     DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def get_connection() -> sqlite3.Connection:
+    """
+    SQLite への接続を返すヘルパー。フォルダ作成・外部キー有効化までをセットで行う。
+    呼び出し側は closing と組み合わせて安全に接続を閉じる。
+    """
     _ensure_data_dir()
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -38,6 +43,11 @@ def get_connection() -> sqlite3.Connection:
 
 
 def hash_password(password: str, *, salt: Optional[bytes] = None) -> str:
+    """
+    PBKDF2-HMAC を使ってパスワードをハッシュ化する。ソルトと反復回数を含めて保存する。
+
+    salt が渡されない場合は安全な乱数で新規生成する。
+    """
     if salt is None:
         salt = os.urandom(SALT_BYTES)
     dk = pbkdf2_hmac("sha256", password.encode("utf-8"), salt, PASSWORD_ITERATIONS)
@@ -45,6 +55,11 @@ def hash_password(password: str, *, salt: Optional[bytes] = None) -> str:
 
 
 def verify_password(password: str, stored_hash: str) -> bool:
+    """
+    保存されたハッシュ文字列を解析し、入力パスワードと照合する。
+
+    フォーマットが不正な場合は False を返して安全側に倒す。
+    """
     try:
         iterations_str, salt_hex, hash_hex = stored_hash.split("$")
         iterations = int(iterations_str)
@@ -56,6 +71,12 @@ def verify_password(password: str, stored_hash: str) -> bool:
 
 
 def init_db() -> None:
+    """
+    データベースを初期化し、必要なテーブルが無ければ作成する。
+
+    初回起動時にはデフォルト管理者 (admin/admin) を登録して、
+    管理画面に入れる最低限のアカウントを用意する。
+    """
     _ensure_data_dir()
     with closing(get_connection()) as conn:
         conn.executescript(
@@ -124,6 +145,7 @@ def get_user_by_username(username: str) -> Optional[UserRecord]:
 
 
 def fetch_user_credentials(username: str) -> Optional[sqlite3.Row]:
+    """ログイン時の認証用に、ハッシュされたパスワードを含む行を取得する。"""
     with closing(get_connection()) as conn:
         return conn.execute(
             "SELECT id, username, password_hash, is_admin FROM users WHERE username = ?",
@@ -132,6 +154,10 @@ def fetch_user_credentials(username: str) -> Optional[sqlite3.Row]:
 
 
 def create_user(username: str, password: str, *, is_admin: bool = False) -> int:
+    """
+    新規ユーザーを追加し、そのレコードIDを返す。呼び出し元で例外を握り、
+    一意制約エラーなどを適切な HTTP 応答に変換する前提となっている。
+    """
     password_hash = hash_password(password)
     with closing(get_connection()) as conn:
         cursor = conn.execute(
@@ -149,6 +175,11 @@ def update_user(
     password: Optional[str] = None,
     is_admin: Optional[bool] = None,
 ) -> bool:
+    """
+    ユーザーの任意の項目を更新する。更新対象が空の場合は False を返す。
+
+    渡された値のみを UPDATE 文に組み立てることで、最小限の変更にとどめる。
+    """
     updates: list[str] = []
     params: list[object] = []
     if username is not None:
@@ -173,6 +204,7 @@ def update_user(
 
 
 def update_user_password(username: str, password: str) -> bool:
+    """ユーザー名をキーにパスワードだけを更新する簡易ヘルパー。"""
     password_hash = hash_password(password)
     with closing(get_connection()) as conn:
         cursor = conn.execute(
@@ -184,6 +216,7 @@ def update_user_password(username: str, password: str) -> bool:
 
 
 def delete_user(username: str) -> bool:
+    """ユーザー名指定でレコードを削除し、成功可否を返す。"""
     with closing(get_connection()) as conn:
         cursor = conn.execute("DELETE FROM users WHERE username = ?", (username,))
         conn.commit()
@@ -191,6 +224,7 @@ def delete_user(username: str) -> bool:
 
 
 def delete_user_by_id(user_id: int) -> bool:
+    """ユーザーID指定でレコードを削除し、成功可否を返す。"""
     with closing(get_connection()) as conn:
         cursor = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
         conn.commit()
