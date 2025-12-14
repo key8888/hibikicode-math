@@ -2,6 +2,11 @@ import { elements } from "./domElements.js";
 import { state } from "./state.js";
 import { apiClient, getStoredToken, setAuthToken } from "./api.js";
 
+// ログインダイアログの表示制御とトークン管理、プロフィール取得を担う認証モジュール。
+
+/**
+ * ログイン状態に応じてユーザー名表示や管理ボタンの活性/非表示を切り替える。
+ */
 function updateUserInterface() {
   if (elements.currentUsername) {
     const username = state.currentUser?.username || "";
@@ -16,6 +21,9 @@ function updateUserInterface() {
   }
 }
 
+/**
+ * サーバーから受け取ったプロフィール情報を state へ反映し、UI を最新化する。
+ */
 function applyProfile(payload) {
   const unlocks = Array.isArray(payload.unlocks) ? payload.unlocks : [];
   state.currentUser = payload.user || null;
@@ -31,6 +39,9 @@ function toggleOverlay(show) {
   overlay.classList.toggle("hidden", !show);
 }
 
+/**
+ * 現在のトークンでプロフィールを取得し、state へ取り込む。
+ */
 async function fetchProfile() {
   const response = await apiClient.get("/api/auth/me");
   applyProfile(response.data);
@@ -45,6 +56,9 @@ function showError(message) {
 
 updateUserInterface();
 
+/**
+ * ログインフォーム送信時の処理。バリデーション、API 呼び出し、UI 更新を担当する。
+ */
 async function handleLoginSubmit(event, resolve) {
   event.preventDefault();
   if (!elements.loginForm || !elements.loginUsername || !elements.loginPassword) {
@@ -85,6 +99,9 @@ async function handleLoginSubmit(event, resolve) {
   }
 }
 
+/**
+ * 保存済みトークンの検証またはログイン UI 表示を行い、認証完了まで待機する。
+ */
 export async function ensureAuthenticated() {
   state.authToken = null;
   const storedToken = getStoredToken();
@@ -119,6 +136,9 @@ export async function ensureAuthenticated() {
   });
 }
 
+/**
+ * ログアウト API を呼び出し、トークンと状態をクリアして画面を再読み込みする。
+ */
 export async function logout() {
   try {
     await apiClient.post("/api/auth/logout");

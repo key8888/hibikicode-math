@@ -86,6 +86,12 @@ class UserUpdateRequest(BaseModel):
 
 
 def _load_materials() -> list[dict[str, Any]]:
+    """
+    lessonsフォルダの Markdown ファイルを読み込み、HTML へ変換してメモリに展開する。
+
+    起動時に一度だけ実行され、以降のAPIリクエストではこのキャッシュされたリストを返す。
+    ファイル名から教材IDを決定し、最初の見出し行を教材タイトルとして利用する。
+    """
     materials: list[dict[str, Any]] = []
     if not LESSON_DIR.exists():
         return materials
@@ -118,11 +124,21 @@ def _auth_payload(user: UserRecord, token: str) -> Dict[str, Any]:
 
 
 def _ensure_admin(user: UserRecord) -> None:
+    """
+    管理者専用エンドポイントのガード。権限がない場合は 403 を送出する。
+    FastAPI の依存関係として利用し、ビューの本処理をシンプルに保つ。
+    """
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="管理者権限が必要です")
 
 
 def _seconds_until_next_run(user_id: int, now: datetime) -> float:
+    """
+    直近の実行時刻からの経過を確認し、次に実行できるまでの残り秒数を計算する。
+
+    クライアント側のクールダウン表示と HTTP 429 応答の両方で利用するため、
+    負の値にならないように 0 で下限を切り上げる。
+    """
     last_run = get_last_program_run_time(user_id)
     if last_run is None:
         return 0.0
@@ -130,6 +146,11 @@ def _seconds_until_next_run(user_id: int, now: datetime) -> float:
 
 
 def _seconds_until_cpu_budget_resets(user_id: int, now: datetime) -> float:
+    """
+    CPU 使用量の総和が一定時間窓を超えていないか確認し、リセットまでの残り秒数を返す。
+
+    USER_CPU_BUDGET_SECONDS が 0 以下なら制限なしとして 0 を返す。
+    """
     if USER_CPU_BUDGET_SECONDS <= 0:
         return 0.0
     recent_cpu_usage = get_execution_time_since(user_id, USER_CPU_BUDGET_WINDOW_SECONDS)
@@ -154,6 +175,12 @@ def get_current_user(
 
 
 def _allowed_builtins() -> Dict[str, Any]:
+    """
+    ユーザーコードが使える安全な組み込み関数の一覧を組み立てる。
+
+    __import__ は危険な外部アクセスを防ぐため None に置き換え、
+    クラス定義に必要な __build_class__ は環境依存で存在する場合のみ許可する。
+    """
     safe_builtins: Dict[str, Any] = {
         "abs": abs,
         "all": all,
@@ -193,6 +220,12 @@ def _allowed_builtins() -> Dict[str, Any]:
 
 
 def _create_environment() -> Dict[str, Any]:
+    """
+    実行環境に渡すグローバル辞書を生成する。
+
+    描画系のユーティリティ (new_plot, plot_function など) を登録しておくことで、
+    学習者が短いコードでグラフを描けるようにしている。
+    """
     environment: Dict[str, Any] = {}
 
     def _set_default_plot(plot: LayoutDOM) -> LayoutDOM:
@@ -293,16 +326,22 @@ def _create_environment() -> Dict[str, Any]:
 def _limit_system_resources() -> None:
     if resource is None:
         return
-    # Limit CPU time to avoid long running scripts
+    # CPU 時間を制限し、無限ループや重い処理がサーバーを占有しないようにする
     resource.setrlimit(resource.RLIMIT_CPU, (int(EXECUTION_TIMEOUT), int(EXECUTION_TIMEOUT)))
-    # Limit memory usage
+    # メモリ使用量の上限を設定し、過剰なメモリ確保を防ぐ
     limit_bytes = MEMORY_LIMIT_MB * 1024 * 1024
     resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
-    # Limit number of open files
+    # 開けるファイルディスクリプタ数も制限してリソース枯渇を回避
     resource.setrlimit(resource.RLIMIT_NOFILE, (64, 64))
 
 
 def _execute_user_code(code: str, queue: Queue) -> None:
+    """
+    子プロセス側で実際にユーザーコードを実行する。
+
+    標準出力・エラーを StringIO で捕捉し、描画された Bokeh のプロットがあれば
+    json_item に変換して親プロセスへ送る。
+    """
     _limit_system_resources()
     env = _create_environment()
     stdout_buffer = io.StringIO()
@@ -352,6 +391,12 @@ def _execute_user_code(code: str, queue: Queue) -> None:
 
 
 def execute_code(code: str) -> Dict[str, Any]:
+    """
+    ユーザーコードを別プロセスで実行し、タイムアウトや結果取得を管理する。
+
+    EXECUTION_TIMEOUT で join し、時間超過時はプロセスを kill して安全に終了させる。
+    キューに結果が入っていなければエラー応答を返す。
+    """
     queue: Queue = Queue()
     process = Process(target=_execute_user_code, args=(code, queue))
     process.start()

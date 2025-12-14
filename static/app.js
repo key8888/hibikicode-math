@@ -15,8 +15,15 @@ import {
 import { setupProgramHistory } from "./js/history.js";
 import { setupUserManagement } from "./js/adminUsers.js";
 
+// 学習画面の初期化からイベント登録まで、フロント全体の起点となるスクリプト。
+// 各モジュールのセットアップ順序をここで統一しておくことで、依存関係の抜け漏れを防ぐ。
+
 /**
  * Ctrl + Enter で実行ボタンを押せるようにするキーボードショートカット。
+ *
+ * キーボード操作だけで素早く試行錯誤できるように、ボタンが無効化されている場合は
+ * 何もしないようガードしている。preventDefault で改行入力を抑制し、
+ * エディタに余計な改行が入らないようにする。
  */
 function setupKeyboardShortcut() {
   document.addEventListener("keydown", (event) => {
@@ -32,6 +39,9 @@ function setupKeyboardShortcut() {
 
 /**
  * 教材ナビゲーションボタンのクリックイベント。
+ *
+ * 未解放の教材へ進む際はパスワード入力を求め、正しく入力された場合のみ fetchLesson を実行する。
+ * 戻るボタンは 0 番目 (最初の教材) で無効化することで配列範囲外アクセスを防いでいる。
  */
 function setupLessonNavigationButtons() {
   elements.prevLessonButton.addEventListener("click", () => {
@@ -60,6 +70,9 @@ function setupLessonNavigationButtons() {
 
 /**
  * 初期ロード時に必要なセットアップをまとめて呼び出す。
+ *
+ * UI のイベント登録・エディタ初期化・認証確認・教材メタデータ取得の順で処理する。
+ * 非同期処理の途中で例外が起きても await により順序が保証され、初期化の抜け漏れを防げる。
  */
 async function bootstrap() {
   setupTabs();
