@@ -16,10 +16,10 @@ plot_points(x_list, y_list, target_plot=plot, size=10, marker="circle", color="#
 
 - `x_values`, `y_values`: 点の座標。リストやタプルで渡す。
 - `target_plot`: どのグラフに描くか。省略すると新しい図を作って返してくれるけど、今回は変数 `plot` を作ってから渡している。
-- `size`: 点の大きさ。後でくわしくやるよ。
+- `size`: 点の大きさ。後で詳しくやるよ。
 - `marker`: 点の形。"circle" のほかに "square"、"triangle" などもある。
 
-Pythonでは、リストの順番がそのまま点を描く順番になる。先に `x_list` と `y_list` を用意することで、データの準備 → 描画という流れがクリアになるんだ。
+Pythonでは、リストの順番がそのまま点を描く順番になる。先に `x_list` と `y_list` を用意することで、データの準備 → 描画という流れがスムーズになるんだ。
 
 `ColumnDataSource`（コラムデータソース）は、Bokehが内部でデータを管理するための入れ物。今回はリストを直接渡したけど、たくさんの列（データ項目）を持っているときは便利。
 
