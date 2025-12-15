@@ -17,7 +17,7 @@ plot_points(months, temperatures, target_plot=plot, size=12, marker="circle", co
 
 点と線を同じ色にしておくと、折れ線の一部だと分かりやすいね。
 
-インタラクティブな工夫として、データ値をホバー（マウスを乗せる）で表示する方法も紹介。
+面白い工夫として、データ値をホバー（マウスを乗せる）で表示する方法も紹介。
 
 ```python
 from bokeh.models import HoverTool
