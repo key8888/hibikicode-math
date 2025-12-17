@@ -1,6 +1,6 @@
 import { elements } from "./domElements.js";
 
-const teacherAudio = new Audio("/static/call_teacher.wav");
+const teacherAudio = new Audio("/static/call_teacher.mp3");
 teacherAudio.preload = "auto";
 
 /**
